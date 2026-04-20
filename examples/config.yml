@@ -1,0 +1,35 @@
+projects:
+  api:
+    path: ~/code/myapi
+    cmd: bun run dev
+    restart: on-failure
+  web:
+    path: ~/code/myweb
+    cmd: npm run dev
+    restart: on-failure
+  worker:
+    path: ~/code/myapi
+    cmd: bun run worker
+    restart: on-failure
+  db:
+    path: ~/code/myapi
+    cmd: docker compose up postgres
+
+groups:
+  fullstack: [db, api, web]
+  backend: [db, api, worker]
+  frontend: [web]
+
+settings:
+  log_buffer_lines: 1000
+  log_dir: ~/.cache/procs/logs
+  log_rotate_size_mb: 10
+  log_rotate_keep: 5
+  shutdown_grace_ms: 5000
+  group_start_delay_ms: 300
+  restart_backoff_ms: [1000, 2000, 4000, 8000, 16000]
+  restart_max_attempts: 5
+  restart_reset_after_ms: 60000
+  pty_cols: 120
+  pty_rows: 40
+  log_flush_interval_ms: 150

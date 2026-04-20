@@ -1,0 +1,303 @@
+package tui
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/taynguyen/procs/internal/gitinfo"
+	"github.com/taynguyen/procs/internal/netinfo"
+	"github.com/taynguyen/procs/internal/tui/attach"
+	"github.com/taynguyen/procs/internal/tui/overlays"
+)
+
+// handleMsg is the central message dispatcher for the root Model.
+func handleMsg(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		return handleResize(m, msg), nil
+
+	case tea.KeyMsg:
+		return routeKey(m, msg)
+
+	case tea.MouseMsg:
+		cmd := m.logPanel.Update(msg)
+		return m, cmd
+
+	case RuntimeChangedMsg:
+		return handleRuntimeChanged(m, msg)
+
+	case LogTickMsg:
+		m.refreshLogPanel()
+		return m, logTick(logFlushInterval(m.cfg))
+
+	case ToastExpiredMsg:
+		m.overlays.Toasts.Prune(time.Now())
+		return m, toastPruneTick()
+
+	case ShowToastMsg:
+		m.overlays.Toasts.Add(msg.Text, msg.Level)
+		return m, nil
+
+	case overlays.ShowToastMsg:
+		m.overlays.Toasts.Add(msg.Text, msg.Level)
+		return m, nil
+
+	case StartGroupMsg:
+		return handleStartGroupByName(m, msg.Name)
+
+	case overlays.StartGroupMsg:
+		return handleStartGroupByName(m, msg.Name)
+
+	case overlays.CheckoutBranchMsg:
+		return handleCheckoutBranch(m, msg.Branch)
+
+	case GitInfoMsg:
+		if m.lastGitInfo == nil {
+			m.lastGitInfo = make(map[string]gitInfoCache)
+		}
+		m.lastGitInfo[msg.ID] = gitInfoCache{
+			branch: msg.Info.Branch,
+			ahead:  msg.Info.Ahead,
+			behind: msg.Info.Behind,
+			dirty:  msg.Info.Dirty,
+		}
+		return m, nil
+
+	case PortInfoMsg:
+		if m.lastPort == nil {
+			m.lastPort = make(map[string]int)
+		}
+		m.lastPort[msg.ID] = msg.Port
+		return m, nil
+
+	case statusRefreshTickMsg:
+		return m, handleStatusRefresh(m)
+
+	case overlays.FilterCommitMsg:
+		m.mode = ModeNormal
+		m.ui.SetFilter(msg.Text)
+		uiSnap := m.ui.Snapshot()
+		m.logPanel.SetFilter(uiSnap.FilterRegex)
+		m.statusBar.FilterText = msg.Text
+		return m, nil
+
+	case overlays.FilterCancelMsg:
+		m.mode = ModeNormal
+		return m, nil
+
+	case AttachRequestMsg:
+		return handleAttachRequest(m, msg)
+
+	case AttachEndedMsg:
+		m.mode = ModeNormal
+		return m, nil
+
+	case stateRefreshMsg:
+		m.syncSelectedFromStore()
+		return m, nil
+
+	case branchesLoadedMsg:
+		m.overlays.Branch.SetBranches(msg.branches)
+		m.overlays.Branch.Show()
+		return m, nil
+	}
+
+	return m, nil
+}
+
+// handleResize updates all pane sizes when the terminal is resized.
+func handleResize(m Model, msg tea.WindowSizeMsg) Model {
+	m.width = msg.Width
+	m.height = msg.Height
+
+	sidebarW := sidebarWidth(m.width)
+	logW := m.width - sidebarW
+	contentH := m.height - statusBarHeight
+
+	m.sidebar.SetSize(sidebarW, contentH)
+	m.logPanel.SetSize(logW, contentH)
+	m.statusBar.Width = m.width
+
+	if id := m.sidebar.Selected(); id != "" {
+		ptyCols := uint16(max(40, logW-4))
+		ptyRows := uint16(max(10, contentH-4))
+		m.mgr.Resize(id, ptyCols, ptyRows)
+	}
+	return m
+}
+
+// handleRuntimeChanged updates sidebar and re-arms the subscription.
+func handleRuntimeChanged(m Model, msg RuntimeChangedMsg) (Model, tea.Cmd) {
+	m.lastRuntimeSnap = msg.Snapshot
+	m.sidebar.SetRows(msg.Snapshot)
+	m.syncSelectedFromStore()
+	return m, rearmRuntimeSubscribe(m.runtime)
+}
+
+// handleStartGroupByName starts a group and shows a toast.
+func handleStartGroupByName(m Model, name string) (Model, tea.Cmd) {
+	delay := time.Duration(m.cfg.Settings.GroupStartDelayMs) * time.Millisecond
+	go func() {
+		if err := m.mgr.StartGroup(name, delay); err != nil {
+			m.overlays.Toasts.Add("group start: "+err.Error(), overlays.ToastErr)
+		} else {
+			m.overlays.Toasts.Add("started group: "+name, overlays.ToastInfo)
+		}
+	}()
+	return m, nil
+}
+
+// handleAttachRequest starts the attach flow for the given project.
+// It calls program.ReleaseTerminal, runs the attach controller (blocking),
+// then calls program.RestoreTerminal and emits AttachEndedMsg.
+func handleAttachRequest(m Model, msg AttachRequestMsg) (tea.Model, tea.Cmd) {
+	// Verify the process is running before proceeding.
+	snap := m.runtime.Snapshot()
+	running := false
+	for _, r := range snap {
+		if r.ID == msg.ID && r.State == "running" {
+			running = true
+			break
+		}
+	}
+	if !running {
+		m.overlays.Toasts.Add("attach: process not running", overlays.ToastErr)
+		return m, nil
+	}
+
+	m.mode = ModeAttach
+	prog := m.prog
+	mgr := m.mgr
+	id := msg.ID
+
+	return m, func() tea.Msg {
+		if prog != nil {
+			if err := prog.ReleaseTerminal(); err != nil {
+				return AttachEndedMsg{}
+			}
+		}
+
+		ptmx, err := mgr.Attach(id)
+		if err == nil {
+			ctrl := attach.NewController(0, 0)
+			ctrl.Run(context.Background(), ptmx) //nolint:errcheck
+		}
+
+		if prog != nil {
+			prog.RestoreTerminal() //nolint:errcheck
+		}
+		return AttachEndedMsg{}
+	}
+}
+
+// handleCheckoutBranch runs git checkout for the selected project and shows a toast.
+func handleCheckoutBranch(m Model, branch string) (Model, tea.Cmd) {
+	id := m.sidebar.Selected()
+	if id == "" {
+		m.overlays.Toasts.Add("checkout: no project selected", overlays.ToastErr)
+		return m, nil
+	}
+
+	// Look up project path.
+	proj, ok := m.cfg.Projects[id]
+	if !ok {
+		m.overlays.Toasts.Add(fmt.Sprintf("checkout: unknown project %q", id), overlays.ToastErr)
+		return m, nil
+	}
+	dir := proj.Path
+
+	return m, func() tea.Msg {
+		if err := gitinfo.Checkout(dir, branch); err != nil {
+			return ShowToastMsg{Text: "checkout failed: " + err.Error(), Level: overlays.ToastErr}
+		}
+		return ShowToastMsg{Text: fmt.Sprintf("checked out %s", branch), Level: overlays.ToastInfo}
+	}
+}
+
+// handleStatusRefresh fans out git+port queries for the selected project as tea.Cmds.
+func handleStatusRefresh(m Model) tea.Cmd {
+	id := m.sidebar.Selected()
+	if id == "" {
+		return statusRefreshTick()
+	}
+
+	proj, ok := m.cfg.Projects[id]
+	if !ok {
+		return statusRefreshTick()
+	}
+	dir := proj.Path
+
+	// Find PID for port query.
+	pid := 0
+	for _, r := range m.lastRuntimeSnap {
+		if r.ID == id {
+			pid = r.PID
+			break
+		}
+	}
+
+	var cmds []tea.Cmd
+
+	// Git info query.
+	capturedID := id
+	capturedDir := dir
+	cmds = append(cmds, func() tea.Msg {
+		info, _ := gitinfo.Current(capturedDir)
+		return GitInfoMsg{ID: capturedID, Info: info}
+	})
+
+	// Port query (only when process is running with a known PID).
+	if pid > 0 {
+		capturedPID := pid
+		cmds = append(cmds, func() tea.Msg {
+			port, err := netinfo.PortForPID(capturedPID)
+			if err != nil {
+				port = 0
+			}
+			return PortInfoMsg{ID: capturedID, Port: port}
+		})
+	}
+
+	cmds = append(cmds, statusRefreshTick())
+	return tea.Batch(cmds...)
+}
+
+// handleBranchPickerOpen opens the branch picker for the selected project.
+func handleBranchPickerOpen(m Model) (Model, tea.Cmd) {
+	id := m.sidebar.Selected()
+	if id == "" {
+		return m, nil
+	}
+	proj, ok := m.cfg.Projects[id]
+	if !ok {
+		return m, nil
+	}
+	dir := proj.Path
+
+	m.mode = ModeBranchPicker
+	return m, func() tea.Msg {
+		branches, err := gitinfo.Branches(dir)
+		if err != nil || len(branches) == 0 {
+			branches = []string{}
+		}
+		return branchesLoadedMsg{branches: branches}
+	}
+}
+
+// branchesLoadedMsg is sent when async branch list is ready.
+type branchesLoadedMsg struct {
+	branches []string
+}
+
+// gracefulQuit stops all processes then emits QuitMsg.
+func gracefulQuit(m Model) tea.Cmd {
+	grace := time.Duration(m.cfg.Settings.ShutdownGraceMs) * time.Millisecond
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), grace+5*time.Second)
+		defer cancel()
+		m.mgr.StopAll(ctx)
+		return tea.QuitMsg{}
+	}
+}
