@@ -139,14 +139,14 @@ func handleRuntimeChanged(m Model, msg RuntimeChangedMsg) (Model, tea.Cmd) {
 // handleStartGroupByName starts a group and shows a toast.
 func handleStartGroupByName(m Model, name string) (Model, tea.Cmd) {
 	delay := time.Duration(m.cfg.Settings.GroupStartDelayMs) * time.Millisecond
-	go func() {
-		if err := m.mgr.StartGroup(name, delay); err != nil {
-			m.overlays.Toasts.Add("group start: "+err.Error(), overlays.ToastErr)
-		} else {
-			m.overlays.Toasts.Add("started group: "+name, overlays.ToastInfo)
+	mgr := m.mgr
+	capturedName := name
+	return m, func() tea.Msg {
+		if err := mgr.StartGroup(capturedName, delay); err != nil {
+			return ShowToastMsg{Text: "group start: " + err.Error(), Level: overlays.ToastErr}
 		}
-	}()
-	return m, nil
+		return ShowToastMsg{Text: "started group: " + capturedName, Level: overlays.ToastInfo}
+	}
 }
 
 // handleAttachRequest starts the attach flow for the given project.

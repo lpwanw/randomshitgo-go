@@ -46,6 +46,9 @@ type Child struct {
 	cmd      *exec.Cmd
 	ptmx     *os.File
 	cancelFn context.CancelFunc
+	// waitDone is closed by run() immediately after cmd.Wait() returns.
+	// Stop() passes it to gracefulStop so that function never calls Wait itself.
+	waitDone chan struct{}
 
 	// stopRequested is set to 1 when Stop is called to suppress auto-restart.
 	stopRequested atomic.Int32
@@ -119,6 +122,7 @@ func (c *Child) Start(ctx context.Context) error {
 	c.cmd = cmd
 	c.ptmx = ptmx
 	c.pid = cmd.Process.Pid
+	c.waitDone = make(chan struct{})
 	c.mu.Unlock()
 
 	c.setState(StateRunning)
@@ -188,7 +192,14 @@ func (c *Child) run(ctx context.Context, cancel context.CancelFunc) {
 	}
 
 	// Wait for process exit to collect exit code.
+	// close(waitDone) immediately after so that a concurrent Stop/gracefulStop
+	// knows the process has been reaped and must not call Wait itself.
 	_ = cmd.Wait()
+	c.mu.Lock()
+	if c.waitDone != nil {
+		close(c.waitDone)
+	}
+	c.mu.Unlock()
 	ptmx.Close()
 
 	code := 0
@@ -211,6 +222,7 @@ func (c *Child) run(ctx context.Context, cancel context.CancelFunc) {
 		c.mu.Lock()
 		c.cmd = nil
 		c.ptmx = nil
+		c.pid = 0
 		c.mu.Unlock()
 		c.setState(StateIdle)
 		c.policy.Stop()
@@ -223,6 +235,7 @@ func (c *Child) run(ctx context.Context, cancel context.CancelFunc) {
 		c.mu.Lock()
 		c.cmd = nil
 		c.ptmx = nil
+		c.pid = 0
 		c.mu.Unlock()
 		if code != 0 {
 			c.setState(StateCrashed)
@@ -233,6 +246,7 @@ func (c *Child) run(ctx context.Context, cancel context.CancelFunc) {
 		c.mu.Lock()
 		c.cmd = nil
 		c.ptmx = nil
+		c.pid = 0
 		c.mu.Unlock()
 		c.setState(StateGivingUp)
 	case ActionRestart:
@@ -246,6 +260,7 @@ func (c *Child) run(ctx context.Context, cancel context.CancelFunc) {
 				c.mu.Lock()
 				c.cmd = nil
 				c.ptmx = nil
+				c.pid = 0
 				c.mu.Unlock()
 				c.setState(StateIdle)
 				return
@@ -259,6 +274,7 @@ func (c *Child) run(ctx context.Context, cancel context.CancelFunc) {
 			c.mu.Lock()
 			c.cmd = nil
 			c.ptmx = nil
+			c.pid = 0
 			c.mu.Unlock()
 			c.setState(StateIdle)
 			return
@@ -268,6 +284,7 @@ func (c *Child) run(ctx context.Context, cancel context.CancelFunc) {
 		c.mu.Lock()
 		c.cmd = nil
 		c.ptmx = nil
+		c.pid = 0
 		c.state = StateIdle
 		c.mu.Unlock()
 
@@ -290,6 +307,7 @@ func (c *Child) Stop() error {
 	c.mu.Lock()
 	cmd := c.cmd
 	cancel := c.cancelFn
+	waitDone := c.waitDone
 	c.mu.Unlock()
 
 	if cancel != nil {
@@ -300,7 +318,7 @@ func (c *Child) Stop() error {
 	}
 	grace := time.Duration(c.settings.ShutdownGraceMs) * time.Millisecond
 	c.setState(StateStopping)
-	return gracefulStop(cmd, grace)
+	return gracefulStop(cmd, grace, waitDone)
 }
 
 // Restart does a manual restart (resets attempt counter, zero delay).

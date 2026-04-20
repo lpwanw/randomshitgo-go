@@ -21,8 +21,16 @@ func TestGracefulStop_KillsProcessGroup(t *testing.T) {
 
 	pid := cmd.Process.Pid
 
+	// In production, run() owns cmd.Wait(). In this unit test we simulate that
+	// by running the reaper in a goroutine and closing done when it returns.
+	done := make(chan struct{})
+	go func() {
+		cmd.Wait() //nolint:errcheck
+		close(done)
+	}()
+
 	start := time.Now()
-	err = gracefulStop(cmd, 200*time.Millisecond)
+	err = gracefulStop(cmd, 200*time.Millisecond, done)
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Logf("gracefulStop returned (non-fatal): %v", err)

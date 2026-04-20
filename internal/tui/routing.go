@@ -6,8 +6,49 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/taynguyen/procs/internal/process"
 	"github.com/taynguyen/procs/internal/tui/overlays"
 )
+
+// startCmd returns a tea.Cmd that calls mgr.Start and returns a ShowToastMsg on error.
+func startCmd(mgr *process.Manager, id string) tea.Cmd {
+	return func() tea.Msg {
+		if err := mgr.Start(id); err != nil {
+			return ShowToastMsg{Text: "start: " + err.Error(), Level: overlays.ToastErr}
+		}
+		return nil
+	}
+}
+
+// restartCmd returns a tea.Cmd that calls mgr.Restart and returns a ShowToastMsg on error.
+func restartCmd(mgr *process.Manager, id string) tea.Cmd {
+	return func() tea.Msg {
+		if err := mgr.Restart(id); err != nil {
+			return ShowToastMsg{Text: "restart: " + err.Error(), Level: overlays.ToastErr}
+		}
+		return nil
+	}
+}
+
+// stopCmd returns a tea.Cmd that calls mgr.Stop and returns a ShowToastMsg on error.
+func stopCmd(mgr *process.Manager, id string, grace time.Duration) tea.Cmd {
+	return func() tea.Msg {
+		if err := mgr.Stop(id, grace); err != nil {
+			return ShowToastMsg{Text: "stop: " + err.Error(), Level: overlays.ToastErr}
+		}
+		return nil
+	}
+}
+
+// stopAllCmd returns a tea.Cmd that calls mgr.StopAll.
+func stopAllCmd(mgr *process.Manager, grace time.Duration) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), grace+5*time.Second)
+		defer cancel()
+		mgr.StopAll(ctx)
+		return nil
+	}
+}
 
 // routeKey dispatches key events to the mode-specific handler.
 func routeKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -71,30 +112,18 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.Start):
 		if id := m.sidebar.Selected(); id != "" {
-			go func() {
-				if err := m.mgr.Start(id); err != nil {
-					m.overlays.Toasts.Add("start: "+err.Error(), overlays.ToastErr)
-				}
-			}()
+			return m, startCmd(m.mgr, id)
 		}
 
 	case key.Matches(msg, m.keys.Restart):
 		if id := m.sidebar.Selected(); id != "" {
-			go func() {
-				if err := m.mgr.Restart(id); err != nil {
-					m.overlays.Toasts.Add("restart: "+err.Error(), overlays.ToastErr)
-				}
-			}()
+			return m, restartCmd(m.mgr, id)
 		}
 
 	case key.Matches(msg, m.keys.Stop):
 		if id := m.sidebar.Selected(); id != "" {
 			grace := time.Duration(m.cfg.Settings.ShutdownGraceMs) * time.Millisecond
-			go func() {
-				if err := m.mgr.Stop(id, grace); err != nil {
-					m.overlays.Toasts.Add("stop: "+err.Error(), overlays.ToastErr)
-				}
-			}()
+			return m, stopCmd(m.mgr, id, grace)
 		}
 
 	case key.Matches(msg, m.keys.Attach):
@@ -103,12 +132,8 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case key.Matches(msg, m.keys.StopAll):
-		go func() {
-			grace := time.Duration(m.cfg.Settings.ShutdownGraceMs) * time.Millisecond
-			ctx, cancel := context.WithTimeout(context.Background(), grace+5*time.Second)
-			defer cancel()
-			m.mgr.StopAll(ctx)
-		}()
+		grace := time.Duration(m.cfg.Settings.ShutdownGraceMs) * time.Millisecond
+		return m, stopAllCmd(m.mgr, grace)
 
 	case key.Matches(msg, m.keys.PageUp),
 		key.Matches(msg, m.keys.PageDown),
