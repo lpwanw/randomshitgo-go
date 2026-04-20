@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -31,9 +32,6 @@ var (
 			Background(lipgloss.Color("160")).
 			Foreground(lipgloss.Color("255")).
 			Padding(0, 1)
-
-	styleToastContainer = lipgloss.NewStyle().
-				AlignHorizontal(lipgloss.Right)
 )
 
 // Toast is a single notification message.
@@ -84,14 +82,22 @@ func (ts *ToastStack) Prune(now time.Time) {
 // Len returns the number of active toasts.
 func (ts *ToastStack) Len() int { return len(ts.items) }
 
-// View renders the toast stack into the bottom-right corner of width×height.
-// Returns "" when there are no toasts.
-func (ts *ToastStack) View(width, height int) string {
+// View renders the toast stack as a compact block sized to its content.
+// Returns "" when there are no toasts. The caller is responsible for placing
+// the block onto the main canvas (see tui.overlayBottomRight) — this function
+// MUST NOT pad to width×height, because that would blank out the main UI
+// when composed via string concatenation.
+func (ts *ToastStack) View(width, _ int) string {
 	if len(ts.items) == 0 {
 		return ""
 	}
 
-	var lines []string
+	maxW := width
+	if maxW <= 0 {
+		maxW = 80
+	}
+
+	lines := make([]string, 0, len(ts.items))
 	for _, t := range ts.items {
 		var s lipgloss.Style
 		switch t.Level {
@@ -102,12 +108,11 @@ func (ts *ToastStack) View(width, height int) string {
 		default:
 			s = styleToastInfo
 		}
-		lines = append(lines, s.Render(t.Text))
+		rendered := s.Render(t.Text)
+		if ansi.StringWidth(rendered) > maxW {
+			rendered = ansi.Truncate(rendered, maxW, "…")
+		}
+		lines = append(lines, rendered)
 	}
-
-	stack := strings.Join(lines, "\n")
-	return lipgloss.Place(width, height,
-		lipgloss.Right, lipgloss.Bottom,
-		stack,
-	)
+	return strings.Join(lines, "\n")
 }

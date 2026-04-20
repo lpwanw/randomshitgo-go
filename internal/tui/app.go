@@ -187,13 +187,17 @@ func applyOverlay(m Model, base string) string {
 	return base
 }
 
-// applyToasts appends toast view below base when present.
+// applyToasts overlays the toast stack onto base, anchored just above the
+// status bar in the bottom-right corner. base must already be a full frame of
+// m.width × m.height characters; the toast block replaces the right edge of
+// the lines it covers so the rest of the UI remains visible.
 func applyToasts(m Model, base string) string {
 	v := m.overlays.Toasts.View(m.width, m.height)
 	if v == "" {
 		return base
 	}
-	return base + "\n" + v
+	// Status bar occupies the last line (m.height-1); anchor toasts one line above.
+	return overlayBottomRight(base, v, m.width, m.height-2)
 }
 
 // ---- helpers ----
