@@ -7,6 +7,36 @@ import (
 	"github.com/taynguyen/procs/internal/event"
 )
 
+func TestRuntimeStore_Seed(t *testing.T) {
+	s := NewRuntimeStore()
+	ch := s.Subscribe()
+	s.Seed([]string{"web", "api"})
+
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("expected subscriber notification after Seed")
+	}
+
+	snap := s.Snapshot()
+	if len(snap) != 2 {
+		t.Fatalf("expected 2 seeded entries, got %d", len(snap))
+	}
+	for _, r := range snap {
+		if r.State != "idle" {
+			t.Fatalf("expected seeded state idle, got %q for %s", r.State, r.ID)
+		}
+	}
+
+	// Re-seeding preserves existing runtime state.
+	s.Apply(event.StartedEvent{ID: "web", PID: 42, At: time.Now()})
+	s.Seed([]string{"web", "api"})
+	r, _ := s.Get("web")
+	if r.State != "running" || r.PID != 42 {
+		t.Fatalf("seed overwrote running entry: %+v", r)
+	}
+}
+
 func TestRuntimeStore_ApplyStarted(t *testing.T) {
 	s := NewRuntimeStore()
 	s.Apply(event.StartedEvent{ID: "web", PID: 1234, At: time.Now()})

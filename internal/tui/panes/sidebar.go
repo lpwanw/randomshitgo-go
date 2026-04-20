@@ -93,6 +93,14 @@ func (s *Sidebar) Down() {
 	}
 }
 
+// Cursor returns the zero-based index of the highlighted row, or -1 if empty.
+func (s *Sidebar) Cursor() int {
+	if len(s.rows) == 0 {
+		return -1
+	}
+	return s.cursor
+}
+
 // Selected returns the ID of the currently highlighted row, or "" if empty.
 func (s *Sidebar) Selected() string {
 	if len(s.rows) == 0 || s.cursor >= len(s.rows) {

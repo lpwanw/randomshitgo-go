@@ -65,6 +65,14 @@ Config: https://github.com/taynguyen/procs/blob/main/examples/config.yml
 	ui := state.NewUIStore()
 	mgr := process.New(cfg, reg)
 
+	// Seed runtime with idle entries so the sidebar lists configured projects
+	// before any of them start.
+	ids := make([]string, 0, len(cfg.Projects))
+	for id := range cfg.Projects {
+		ids = append(ids, id)
+	}
+	rt.Seed(ids)
+
 	// Pump manager events into the runtime store.
 	go func() {
 		for ev := range mgr.Events() {

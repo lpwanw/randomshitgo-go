@@ -45,6 +45,27 @@ func (s *RuntimeStore) Subscribe() <-chan struct{} {
 	return ch
 }
 
+// Seed initializes the store with idle entries for the given IDs. Existing
+// entries are left unchanged. Subscribers are notified once after seeding so
+// initial snapshots propagate to the TUI.
+func (s *RuntimeStore) Seed(ids []string) {
+	s.mu.Lock()
+	for _, id := range ids {
+		if _, ok := s.m[id]; !ok {
+			s.m[id] = &ProjectRuntime{ID: id, State: "idle"}
+		}
+	}
+	subs := s.subs
+	s.mu.Unlock()
+
+	for _, ch := range subs {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
 // Apply mutates the store based on the incoming event.
 func (s *RuntimeStore) Apply(ev event.Event) {
 	s.mu.Lock()

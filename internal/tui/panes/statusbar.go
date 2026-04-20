@@ -31,6 +31,7 @@ var (
 type StatusBar struct {
 	Mode       string
 	Selected   string
+	Index      int // zero-based cursor position; negative hides counter
 	Total      int
 	PID        int
 	Port       int
@@ -51,12 +52,15 @@ func (sb *StatusBar) View() string {
 	mode := styleModeIndicator.Render(sb.Mode)
 	sep := styleBarSep.Render(" │ ")
 
-	// selection counter
-	sel := sb.Selected
-	if sel == "" {
-		sel = "—"
+	// selection counter — only when there are projects to count.
+	counter := ""
+	if sb.Total > 0 {
+		sel := sb.Selected
+		if sel == "" {
+			sel = "—"
+		}
+		counter = fmt.Sprintf("%s  %d/%d", sel, sb.position(), sb.Total)
 	}
-	counter := fmt.Sprintf("%s  %d/%d", sel, sb.cursor(), sb.Total)
 
 	// pid segment
 	pidSeg := ""
@@ -94,7 +98,10 @@ func (sb *StatusBar) View() string {
 		filterSeg = sep + styleBarDim.Render(fmt.Sprintf("filter:%s", sb.FilterText))
 	}
 
-	parts := []string{mode, " ", styleBar.Render(counter)}
+	parts := []string{mode, " "}
+	if counter != "" {
+		parts = append(parts, styleBar.Render(counter))
+	}
 	if pidSeg != "" {
 		parts = append(parts, pidSeg)
 	}
@@ -114,10 +121,18 @@ func (sb *StatusBar) View() string {
 	return bar
 }
 
-// cursor returns a 1-based position of the selected item.
-func (sb *StatusBar) cursor() int {
-	if sb.Total == 0 {
+// position returns the 1-based position of the cursor, clamped to [1, Total].
+// Falls back to 1 when the caller did not set Index (negative).
+func (sb *StatusBar) position() int {
+	if sb.Total <= 0 {
 		return 0
 	}
-	return 1 // caller should set a real index when known
+	if sb.Index < 0 {
+		return 1
+	}
+	pos := sb.Index + 1
+	if pos > sb.Total {
+		pos = sb.Total
+	}
+	return pos
 }

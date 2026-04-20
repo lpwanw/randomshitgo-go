@@ -227,6 +227,24 @@ func TestStatusBar_View_Placeholders(t *testing.T) {
 	if view == "" {
 		t.Error("StatusBar.View() returned empty string with no PID/port/git")
 	}
+	// Counter must be hidden when there are no projects to count.
+	if strings.Contains(view, "0/0") {
+		t.Errorf("expected counter hidden when Total=0, got: %q", view)
+	}
+}
+
+func TestStatusBar_View_IndexRendersPosition(t *testing.T) {
+	sb := &StatusBar{
+		Mode:     "NORMAL",
+		Selected: "api",
+		Index:    2,
+		Total:    5,
+		Width:    120,
+	}
+	view := sb.View()
+	if !strings.Contains(view, "3/5") {
+		t.Errorf("expected counter 3/5, got: %q", view)
+	}
 }
 
 func TestStatusBar_View_WithGit(t *testing.T) {

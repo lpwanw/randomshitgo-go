@@ -85,8 +85,13 @@ func (m *Model) SetProgram(p *tea.Program) { m.prog = p }
 // Init is called by Bubble Tea to get the initial Cmd.
 func (m Model) Init() tea.Cmd {
 	flushInterval := logFlushInterval(m.cfg)
+	rt := m.runtime
+	initialSnap := func() tea.Msg {
+		return RuntimeChangedMsg{Snapshot: rt.Snapshot()}
+	}
 	return tea.Batch(
 		tea.EnterAltScreen,
+		initialSnap,
 		subscribeRuntime(m.runtime),
 		logTick(flushInterval),
 		toastPruneTick(),
@@ -121,6 +126,7 @@ func (m Model) View() string {
 	uiSnap := m.ui.Snapshot()
 	m.statusBar.Selected = uiSnap.SelectedID
 	m.statusBar.Total = len(m.lastRuntimeSnap)
+	m.statusBar.Index = m.sidebar.Cursor()
 	m.statusBar.FilterText = uiSnap.FilterText
 
 	// Populate live status-bar segments from cached git+port info.
