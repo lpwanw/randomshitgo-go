@@ -7,7 +7,7 @@ so you can type directly into any child process.
 
 ## Features
 
-- Single-binary, zero runtime dependencies (no Node.js, no Bun required)
+- Single static binary, zero runtime dependencies
 - Terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea)
 - Per-project log panes with scroll, filter, and rotation
 - Named groups — boot the whole stack with one key
@@ -44,11 +44,11 @@ Download from [Releases](https://github.com/lpwanw/randomshitgo-go/releases), ex
 projects:
   api:
     path: ~/code/myapi
-    cmd: bun run dev
+    cmd: go run ./cmd/api
     restart: on-failure
   web:
     path: ~/code/myweb
-    cmd: npm run dev
+    cmd: ./scripts/dev
     restart: on-failure
 
 groups:
@@ -90,13 +90,16 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `a` | Attach to selected process (raw PTY) |
 | `S` | Open group picker → start group |
 | `b` | Open branch picker |
-| `/` | Filter logs |
+| `/` | Search logs (vim-style; matches highlighted inline) |
+| `n` / `N` | Jump to next / previous search match |
+| `1`–`9` | Quick-jump to project 1–9 in the sidebar |
 | `PgUp` / `Ctrl-B` | Scroll log up |
 | `PgDn` / `Ctrl-F` | Scroll log down |
 | `g` | Scroll to top |
 | `G` | Scroll to bottom |
 | `?` | Toggle help overlay |
-| `q` / `Ctrl-C` | Quit (stops all processes) |
+| `:` | Open command bar (`:q` to quit) |
+| `Ctrl-C` | Quit — press twice within 2 s to confirm |
 | `Esc` | Cancel / close overlay |
 
 ## Attach Mode
@@ -130,16 +133,6 @@ The project's `path` must be inside a Git repository. If `git` is not on
 **Process does not restart:**
 Check that `restart: on-failure` is set in your config. `restart: never`
 (the default) means the process stays stopped after it exits.
-
-## Differences from the TypeScript/Bun version
-
-| Aspect | Bun original | Go port (this) |
-|--------|-------------|----------------|
-| Runtime | Bun + TypeScript | Single Go binary (CGO_ENABLED=0) |
-| TUI framework | Ink (React) | Bubble Tea |
-| Attach bridge | Node streams | `creack/pty` + raw mode |
-| Distribution | `bun install` | Direct binary / `go install` |
-| Windows support | Partial | PTY limited (no ConPTY yet) |
 
 ## License
 
