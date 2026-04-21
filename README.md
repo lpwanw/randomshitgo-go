@@ -19,22 +19,49 @@ so you can type directly into any child process.
 
 ## Install
 
-**Go install (requires Go 1.22+):**
+### Go install (requires Go 1.22+)
 ```sh
 go install github.com/lpwanw/randomshitgo-go/cmd/procs@latest
 ```
+Binary lands in `$(go env GOBIN)` — falls back to `$(go env GOPATH)/bin`.
+Make sure that directory is on your `PATH`.
 
-**From source:**
+### From source
 ```sh
 git clone https://github.com/lpwanw/randomshitgo-go
 cd randomshitgo-go
-make install        # installs to /usr/local/bin/procs
+make install                  # default PREFIX=/usr/local → /usr/local/bin/procs
+# may need sudo for /usr/local; or install to a user-writable prefix:
+make install PREFIX=$HOME/.local
 ```
 
-**Direct binary (macOS/Linux):**
-Download from [Releases](https://github.com/lpwanw/randomshitgo-go/releases), extract, and place on `$PATH`.
+### Direct binary (macOS/Linux)
+Download the archive for your OS/arch from
+[Releases](https://github.com/lpwanw/randomshitgo-go/releases), extract, and
+place `procs` on your `PATH`.
 
-**Homebrew:** Tap coming in a future release.
+**Homebrew:** tap coming in a future release.
+
+## Update
+
+| Installed via | Command |
+|---------------|---------|
+| `go install`  | `go install github.com/lpwanw/randomshitgo-go/cmd/procs@latest` |
+| source checkout | `make update` (runs `git pull --ff-only && make install`) |
+| direct binary | re-download the latest release and overwrite the binary |
+
+## Uninstall
+
+| Installed via | Command |
+|---------------|---------|
+| `go install`  | `rm "$(command -v procs)"` (typically `$GOPATH/bin/procs`) |
+| source checkout | `make uninstall` (matches the `PREFIX` you installed with) |
+| direct binary | delete the binary you placed on `PATH` |
+
+Remove your config and cached logs if you don't want them around:
+```sh
+rm -rf ~/.config/procs ~/.cache/procs
+```
 
 ## Quick Start
 
