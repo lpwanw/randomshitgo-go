@@ -3,11 +3,14 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lpwanw/randomshitgo-go/internal/config"
 	"github.com/lpwanw/randomshitgo-go/internal/gitinfo"
+	logpkg "github.com/lpwanw/randomshitgo-go/internal/log"
 	"github.com/lpwanw/randomshitgo-go/internal/netinfo"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
@@ -394,10 +397,89 @@ func dispatchCommand(m Model, text string) (tea.Model, tea.Cmd) {
 	case "set nonu", "set nonumber":
 		m.logPanel.SetGutter(false)
 		return m, nil
-	default:
-		m.overlays.Toasts.Add("unknown command: "+name, overlays.ToastErr)
+	case "set severity", "set sev":
+		m.logPanel.SetSeverity(true)
+		return m, nil
+	case "set nosev", "set noseverity":
+		m.logPanel.SetSeverity(false)
+		return m, nil
+	case "set json":
+		m.logPanel.SetJSONPretty(true)
+		return m, nil
+	case "set nojson":
+		m.logPanel.SetJSONPretty(false)
+		return m, nil
+	case "set wrap":
+		m.logPanel.SetWrap(true)
+		return m, nil
+	case "set nowrap":
+		m.logPanel.SetWrap(false)
+		return m, nil
+	case "set sql":
+		m.logPanel.SetSQLPretty(true)
+		return m, nil
+	case "set nosql":
+		m.logPanel.SetSQLPretty(false)
+		return m, nil
+	case "clear", "c":
+		return handleClearBuffer(m)
+	}
+
+	// Commands with arguments — split on first space.
+	if head, rest, ok := strings.Cut(name, " "); ok {
+		switch head {
+		case "w", "write":
+			return handleWriteBuffer(m, rest)
+		}
+	}
+
+	m.overlays.Toasts.Add("unknown command: "+name, overlays.ToastErr)
+	return m, nil
+}
+
+// handleClearBuffer empties the ring buffer for the selected project and
+// refreshes the log panel. No-op when nothing is selected.
+func handleClearBuffer(m Model) (tea.Model, tea.Cmd) {
+	id := m.sidebar.Selected()
+	if id == "" {
+		m.overlays.Toasts.Add("clear: no project selected", overlays.ToastErr)
 		return m, nil
 	}
+	m.reg.ClearBuffer(id)
+	m.refreshLogPanel()
+	m.overlays.Toasts.Add("cleared log buffer: "+id, overlays.ToastInfo)
+	return m, nil
+}
+
+// handleWriteBuffer dumps the current log panel content to disk. Path is
+// run through the same tilde / env-var expansion as the config layer.
+func handleWriteBuffer(m Model, rawPath string) (tea.Model, tea.Cmd) {
+	rawPath = strings.TrimSpace(rawPath)
+	if rawPath == "" {
+		m.overlays.Toasts.Add("w: missing path", overlays.ToastErr)
+		return m, nil
+	}
+	expanded, err := config.ExpandPath(rawPath)
+	if err != nil {
+		m.overlays.Toasts.Add("w: "+err.Error(), overlays.ToastErr)
+		return m, nil
+	}
+	lines := m.logPanel.VisibleLines()
+	// Strip ANSI from the dump — clipboards/editors want plain text.
+	stripped := make([]string, len(lines))
+	for i, line := range lines {
+		stripped[i] = logpkg.StripANSI(line)
+	}
+	body := strings.Join(stripped, "\n")
+	if len(stripped) > 0 {
+		body += "\n"
+	}
+	if err := os.WriteFile(expanded, []byte(body), 0o644); err != nil {
+		m.overlays.Toasts.Add("w: "+err.Error(), overlays.ToastErr)
+		return m, nil
+	}
+	m.overlays.Toasts.Add(fmt.Sprintf("wrote %d lines → %s", len(stripped), expanded), overlays.ToastInfo)
+	return m, nil
 }
 
 // gracefulQuit stops all processes then emits QuitMsg.

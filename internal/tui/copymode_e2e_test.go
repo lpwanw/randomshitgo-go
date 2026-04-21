@@ -1,10 +1,12 @@
 package tui
 
 import (
+	"os"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lpwanw/randomshitgo-go/internal/state"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
 )
 
@@ -163,6 +165,52 @@ func TestLogFocus_NJumpsCursor(t *testing.T) {
 	line, _ = m.logPanel.Cursor()
 	if line != 3 {
 		t.Errorf("second n should advance to line 3, got %d", line)
+	}
+}
+
+func TestLogFocus_SpacePausesFollow(t *testing.T) {
+	m := newTestModel()
+	m.logPanel.SetLines([]string{"a", "b"})
+	m, _ = feedMsg(m, keyTab())
+
+	m, _ = feedMsg(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if !m.logPanel.Paused() {
+		t.Fatal("Space should pause follow")
+	}
+	m, _ = feedMsg(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if m.logPanel.Paused() {
+		t.Error("second Space should unpause")
+	}
+}
+
+func TestCommand_ClearEmptiesBuffer(t *testing.T) {
+	m := newTestModel()
+	// Force a sidebar selection so :clear has a target.
+	m.sidebar.SetRows([]state.ProjectRuntime{{ID: "api", State: "running"}})
+	m.sidebar.SetSelected("api")
+	m.reg.WriteRaw("api", []byte("hello\nworld\n"))
+	if got := m.reg.Get("api").Ring.Snapshot(); len(got) != 2 {
+		t.Fatalf("seed: want 2 lines, got %d", len(got))
+	}
+	m, _ = feedMsg(m, overlaysPkgCommandRun("clear"))
+	if got := m.reg.Get("api").Ring.Snapshot(); len(got) != 0 {
+		t.Errorf(":clear should empty ring, got %d lines", len(got))
+	}
+}
+
+func TestCommand_WriteDumpsVisibleLines(t *testing.T) {
+	m := newTestModel()
+	m.logPanel.SetLines([]string{"alpha", "beta", "gamma"})
+	dir := t.TempDir()
+	path := dir + "/dump.log"
+	m, _ = feedMsg(m, overlaysPkgCommandRun("w "+path))
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read dump: %v", err)
+	}
+	want := "alpha\nbeta\ngamma\n"
+	if string(body) != want {
+		t.Errorf("dump mismatch\nwant: %q\ngot:  %q", want, string(body))
 	}
 }
 

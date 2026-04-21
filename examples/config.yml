@@ -3,6 +3,10 @@ projects:
     path: ~/code/myapi
     cmd: bun run dev
     restart: on-failure
+    env:
+      PORT: "8080"
+      LOG_LEVEL: debug
+    env_file: ~/.config/procs/api.env   # optional; inline `env:` wins on conflict
   web:
     path: ~/code/myweb
     cmd: npm run dev

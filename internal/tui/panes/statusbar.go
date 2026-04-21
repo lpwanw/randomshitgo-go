@@ -44,6 +44,7 @@ type StatusBar struct {
 	FilterTotal int    // total number of filter matches
 	CopyCursor  string // copy-mode cursor label, e.g. "L12:3"; empty hides
 	CmdBuffer   string // pending vim-command buffer (e.g. "3yi"); empty hides
+	Paused      bool   // Space-pause active in log focus
 	Width       int
 }
 
@@ -132,6 +133,9 @@ func (sb *StatusBar) View() string {
 	}
 	if sb.CmdBuffer != "" {
 		parts = append(parts, sep+styleBarDim.Render(sb.CmdBuffer))
+	}
+	if sb.Paused {
+		parts = append(parts, sep+styleBarDim.Render("[PAUSED]"))
 	}
 
 	bar := strings.Join(parts, "")

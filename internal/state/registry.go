@@ -83,6 +83,18 @@ func (r *Registry) WriteRaw(id string, b []byte) {
 	}
 }
 
+// ClearBuffer empties the in-memory ring for id without touching rotated
+// files on disk. No-op when the project was never registered.
+func (r *Registry) ClearBuffer(id string) {
+	r.mu.RLock()
+	e, ok := r.m[id]
+	r.mu.RUnlock()
+	if !ok || e == nil {
+		return
+	}
+	e.Ring.Clear()
+}
+
 // Close flushes and closes all rotators.
 func (r *Registry) Close() {
 	r.mu.Lock()

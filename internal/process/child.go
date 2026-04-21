@@ -107,7 +107,11 @@ func (c *Child) Start(ctx context.Context) error {
 	c.cancelFn = cancel
 	c.mu.Unlock()
 
-	env := buildEnv()
+	env, err := c.cfg.BuildEnv(buildEnv())
+	if err != nil {
+		c.setState(StateIdle)
+		return fmt.Errorf("build env for %s: %w", c.ID, err)
+	}
 	cols := uint16(c.settings.PtyCols)
 	rows := uint16(c.settings.PtyRows)
 

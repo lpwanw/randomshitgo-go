@@ -169,6 +169,7 @@ func (m Model) View() string {
 		m.statusBar.CopyCursor = ""
 		m.statusBar.CmdBuffer = ""
 	}
+	m.statusBar.Paused = m.logPanel.Paused()
 
 	// Populate live status-bar segments from cached git+port info.
 	if sel := uiSnap.SelectedID; sel != "" {

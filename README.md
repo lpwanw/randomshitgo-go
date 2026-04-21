@@ -93,6 +93,8 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `projects.<id>.path` | string | required | Working directory for the process |
 | `projects.<id>.cmd` | string | required | Shell command to run |
 | `projects.<id>.restart` | `never` / `on-failure` | `never` | Restart policy |
+| `projects.<id>.env` | map[string]string | `{}` | Inline env vars injected into the child. Quote numeric values in YAML (`PORT: "8080"`) |
+| `projects.<id>.env_file` | string | — | Path to a `KEY=VALUE` env file (supports `#` comments, `export` prefix, quoted values). Merged under inline `env:` — inline wins on conflict |
 | `groups.<name>` | `[id, ...]` | — | Named group for batch start |
 | `settings.log_buffer_lines` | int | 1000 | Per-project in-memory ring size |
 | `settings.log_dir` | string | `~/.cache/procs/logs` | Log file directory |
@@ -126,6 +128,12 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `G` | Scroll to bottom |
 | `Tab` | Enter **log focus** — hand the keyboard to the log pane for vim-style nav + yank (double-Esc to return) |
 | `:set nu` / `:set nonu` | Toggle line-number gutter in the log panel |
+| `:set sev` / `:set nosev` | Toggle severity colouring (`ERROR`/`WARN`/`INFO`/`DEBUG` → fg colour). On by default |
+| `:set json` / `:set nojson` | Toggle pretty-print for single-line JSON log lines |
+| `:set sql` / `:set nosql` | Toggle keyword-aware SQL formatting (handles Rails/Sequel/GORM prefixes) |
+| `:set wrap` / `:set nowrap` | Toggle hard-wrap of long lines at viewport width. On by default |
+| `:clear` / `:c` | Empty the in-memory log buffer for the selected project (files on disk untouched) |
+| `:w {path}` | Dump the currently visible log buffer to `{path}` (supports `~` / `$VAR`) |
 | `?` | Toggle help overlay |
 | `:` | Open command bar (`:q` to quit) |
 | `Ctrl-C` | Quit — press twice within 2 s to confirm |
@@ -155,6 +163,7 @@ Counts work in front of any motion or operator: `3w`, `2yy`, `y3e`,
 | `0 ^ $` | line start / first-non-blank / end |
 | `+ -` | next / prev line first-non-blank |
 | `gg G` | buffer top / bottom |
+| `Space` | pause / resume sticky auto-scroll |
 | `Ctrl-u / d` | half-page up / down |
 | `Ctrl-b / f` | full-page up / down |
 | `H M L` | viewport top / mid / bottom |

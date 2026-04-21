@@ -264,6 +264,13 @@ func routeLogFocus(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Space toggles follow-pause without touching the vim state machine.
+	if s := msg.String(); s == " " || s == "space" {
+		m.logEscArmedAt = time.Time{}
+		m.logPanel.TogglePaused()
+		return m, nil
+	}
+
 	// Filter-match jumps stay wired so `/ n N` works inside log focus too.
 	if key.Matches(msg, m.keys.NextMatch) {
 		m.logEscArmedAt = time.Time{}

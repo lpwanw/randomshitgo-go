@@ -16,9 +16,11 @@ const (
 )
 
 type Project struct {
-	Path    string      `yaml:"path"`
-	Cmd     string      `yaml:"cmd"`
-	Restart RestartMode `yaml:"restart,omitempty"`
+	Path    string            `yaml:"path"`
+	Cmd     string            `yaml:"cmd"`
+	Restart RestartMode       `yaml:"restart,omitempty"`
+	Env     map[string]string `yaml:"env,omitempty"`
+	EnvFile string            `yaml:"env_file,omitempty"`
 }
 
 type Settings struct {
@@ -188,6 +190,14 @@ func expandAll(c *Config) error {
 			continue
 		}
 		p.Path = exp
+		if p.EnvFile != "" {
+			envExp, err := ExpandPath(p.EnvFile)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("projects.%s.env_file: %w", id, err))
+				continue
+			}
+			p.EnvFile = envExp
+		}
 		c.Projects[id] = p
 	}
 	if exp, err := ExpandPath(c.Settings.LogDir); err != nil {

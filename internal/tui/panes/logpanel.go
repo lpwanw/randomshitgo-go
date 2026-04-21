@@ -90,6 +90,12 @@ type LogPanel struct {
 	lastFind    findState
 	sel        selection
 	clip       clipboardWriter
+	paused     bool // Space-toggle freeze: suppresses sticky auto-scroll
+	severityOn bool // true = wrap ERROR/WARN/INFO lines with fg colour at render
+	jsonOn     bool // true = expand single-line JSON into pretty multi-line
+	sqlOn      bool // true = reformat SQL with keyword line breaks
+	wrapOn     bool // true = hard-wrap each rendered row to viewport width
+	originalLines []string // pre-pretty snapshot; rebuilt into rawLines on toggle
 }
 
 // NewLogPanel initialises a LogPanel with sticky-bottom on. The viewport is
@@ -100,12 +106,35 @@ func NewLogPanel(width, height int) LogPanel {
 	vp := viewport.New(max(1, width-3), innerH)
 	vp.MouseWheelEnabled = true
 	return LogPanel{
-		vp:       vp,
-		sticky:   true,
-		width:    width,
-		height:   height,
-		matchCur: -1,
+		vp:         vp,
+		sticky:     true,
+		width:      width,
+		height:     height,
+		matchCur:   -1,
+		severityOn: true,
+		wrapOn:     true,
 	}
+}
+
+// SetWrap toggles hard-wrap at render time. Default on — truncation is
+// strictly worse than wrap for any workflow.
+func (lp *LogPanel) SetWrap(on bool) {
+	if lp.wrapOn == on {
+		return
+	}
+	lp.wrapOn = on
+	lp.dirty = true
+	lp.paintMatches()
+}
+
+// SetSeverity toggles the severity-colour render layer. Default is on.
+func (lp *LogPanel) SetSeverity(on bool) {
+	if lp.severityOn == on {
+		return
+	}
+	lp.severityOn = on
+	lp.dirty = true
+	lp.paintMatches()
 }
 
 // SetSize resizes the viewport. The scrollbar reserves one inner column and
@@ -183,7 +212,8 @@ func lineNumberWidth(total int) int {
 // Lines should already have log.DecodeForRender applied.
 func (lp *LogPanel) SetLines(lines []string) {
 	prevGutter := lp.gutterWidth()
-	lp.rawLines = lines
+	lp.originalLines = lines
+	lp.rebuildDisplayLines()
 	// If gutter width shifts with buffer size (e.g. crossing 10 → 100 lines),
 	// reclaim / release the matching viewport columns before rendering.
 	if newGutter := lp.gutterWidth(); newGutter != prevGutter {
@@ -191,10 +221,65 @@ func (lp *LogPanel) SetLines(lines []string) {
 	}
 	lp.dirty = true
 	lp.renderContent()
-	if lp.sticky {
+	if lp.sticky && !lp.paused {
 		lp.vp.GotoBottom()
 	}
 }
+
+// rebuildDisplayLines derives `rawLines` from `originalLines` by applying
+// every active transform (SQL first, then JSON). Order matters: SQL pretty
+// can produce fragments that the JSON detector would otherwise mis-grab.
+func (lp *LogPanel) rebuildDisplayLines() {
+	src := lp.originalLines
+	if lp.sqlOn {
+		src = flattenSQLLines(src)
+	}
+	if lp.jsonOn {
+		src = flattenJSONLines(src)
+	}
+	lp.rawLines = src
+}
+
+// SetJSONPretty toggles single-line-JSON pretty-print. When on, each log line
+// that parses as a JSON object or array is indented and expanded in place;
+// cursor / filter / yank all run over the expanded buffer. Default off.
+func (lp *LogPanel) SetJSONPretty(on bool) {
+	if lp.jsonOn == on {
+		return
+	}
+	lp.jsonOn = on
+	lp.rebuildDisplayLines()
+	lp.dirty = true
+	lp.renderContent()
+}
+
+// SetSQLPretty toggles keyword-aware SQL formatting. Default off.
+func (lp *LogPanel) SetSQLPretty(on bool) {
+	if lp.sqlOn == on {
+		return
+	}
+	lp.sqlOn = on
+	lp.rebuildDisplayLines()
+	lp.dirty = true
+	lp.renderContent()
+}
+
+// VisibleLines returns a defensive copy of the rendered log buffer — used by
+// `:w {path}` to dump exactly what the user sees (post-filter / post-pretty
+// once Phase 03 lands).
+func (lp *LogPanel) VisibleLines() []string {
+	out := make([]string, len(lp.rawLines))
+	copy(out, lp.rawLines)
+	return out
+}
+
+// Paused reports whether Space-pause is active. When paused, new log ticks
+// still refresh rawLines but the viewport is pinned wherever the user left it.
+func (lp *LogPanel) Paused() bool { return lp.paused }
+
+// TogglePaused flips the pause flag. No repaint needed — the next log tick
+// (or user scroll) picks up the new behavior.
+func (lp *LogPanel) TogglePaused() { lp.paused = !lp.paused }
 
 // SetFilter updates the filter regex. Pass nil to clear. Rebuilds match index.
 func (lp *LogPanel) SetFilter(rx *regexp.Regexp) {
@@ -443,17 +528,62 @@ func (lp *LogPanel) paintMatches() {
 		}
 		out[i] = line
 	}
+	// Severity colour is a whole-line fg wrap — applied before selection /
+	// cursor so those reverse-video overlays sit on top cleanly.
+	if lp.severityOn {
+		for i := range out {
+			out[i] = applySeverity(out[i])
+		}
+	}
 	if lp.inCopy {
 		lp.overlaySelection(out)
 		out[lp.cur.line] = overlayCursor(out[lp.cur.line], lp.cur.col)
 	}
-	if gw := lp.gutterWidth(); gw > 0 {
+
+	gw := lp.gutterWidth()
+	contentWidth := lp.vp.Width - gw
+	if contentWidth < 1 {
+		contentWidth = 1
+	}
+
+	// Expand each logical line into one or more visual rows when wrap is on.
+	// `origIdx[k] = i` means visual row k came from rawLines[i]; the first row
+	// for a given i gets the line-number gutter, continuation rows get a blank
+	// gutter of the same width so alignment stays stable.
+	type visualRow struct {
+		line    string
+		origIdx int
+		first   bool
+	}
+	rows := make([]visualRow, 0, len(out))
+	for i, line := range out {
+		if lp.wrapOn && contentWidth > 0 {
+			pieces := wrapLine(line, contentWidth)
+			for j, p := range pieces {
+				rows = append(rows, visualRow{line: p, origIdx: i, first: j == 0})
+			}
+			continue
+		}
+		rows = append(rows, visualRow{line: line, origIdx: i, first: true})
+	}
+
+	flat := make([]string, len(rows))
+	if gw > 0 {
 		numW := gw - 3
-		for i := range out {
-			out[i] = styleGutter.Render(fmt.Sprintf("%*d │ ", numW, i+1)) + out[i]
+		blankLabel := styleGutter.Render(strings.Repeat(" ", numW) + " │ ")
+		for k, r := range rows {
+			if r.first {
+				flat[k] = styleGutter.Render(fmt.Sprintf("%*d │ ", numW, r.origIdx+1)) + r.line
+			} else {
+				flat[k] = blankLabel + r.line
+			}
+		}
+	} else {
+		for k, r := range rows {
+			flat[k] = r.line
 		}
 	}
-	lp.vp.SetContent(strings.Join(out, "\n"))
+	lp.vp.SetContent(strings.Join(flat, "\n"))
 }
 
 // overlayCursor wraps one cell at the cursor's stripped column with
