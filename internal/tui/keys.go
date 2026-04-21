@@ -147,15 +147,15 @@ func DefaultKeyMap() KeyMap {
 		),
 		CopyMotion: key.NewBinding(
 			key.WithKeys("hjkl"),
-			key.WithHelp("hjkl/wb/0$/ggG", "copy: move"),
+			key.WithHelp("hjklwbeWBE0^$+-ggG", "focus: motions"),
 		),
 		CopyVisual: key.NewBinding(
 			key.WithKeys("v"),
-			key.WithHelp("v/V", "copy: char/line select"),
+			key.WithHelp("v/V / fFtT;,", "focus: visual / find-char"),
 		),
 		CopyYank: key.NewBinding(
 			key.WithKeys("y"),
-			key.WithHelp("y/Y", "copy: yank / yank line"),
+			key.WithHelp("yy Y yiw ya\" yi(", "focus: yank (operator+text obj)"),
 		),
 	}
 }

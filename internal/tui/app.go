@@ -164,8 +164,10 @@ func (m Model) View() string {
 	if m.mode == ModeLogFocus {
 		cl, cc := m.logPanel.Cursor()
 		m.statusBar.CopyCursor = fmt.Sprintf("L%d:%d", cl+1, cc+1)
+		m.statusBar.CmdBuffer = m.logPanel.PendingSummary()
 	} else {
 		m.statusBar.CopyCursor = ""
+		m.statusBar.CmdBuffer = ""
 	}
 
 	// Populate live status-bar segments from cached git+port info.

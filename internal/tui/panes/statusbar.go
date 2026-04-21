@@ -43,6 +43,7 @@ type StatusBar struct {
 	FilterIndex int    // 1-based position of the current jump target; 0 = none
 	FilterTotal int    // total number of filter matches
 	CopyCursor  string // copy-mode cursor label, e.g. "L12:3"; empty hides
+	CmdBuffer   string // pending vim-command buffer (e.g. "3yi"); empty hides
 	Width       int
 }
 
@@ -128,6 +129,9 @@ func (sb *StatusBar) View() string {
 	}
 	if sb.CopyCursor != "" {
 		parts = append(parts, sep+styleBarDim.Render(sb.CopyCursor))
+	}
+	if sb.CmdBuffer != "" {
+		parts = append(parts, sep+styleBarDim.Render(sb.CmdBuffer))
 	}
 
 	bar := strings.Join(parts, "")

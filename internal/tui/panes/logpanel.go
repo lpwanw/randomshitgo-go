@@ -83,7 +83,11 @@ type LogPanel struct {
 	gutterOn   bool    // render line-number gutter in Normal mode
 	inCopy     bool    // copy mode active — forces gutter on
 	cur        cursor  // copy-mode cursor position
-	pendingG   bool    // `g` leader armed (waiting for second `g` = top)
+	pending    pendingState
+	op         opKind
+	count      int
+	pendingFind findState
+	lastFind    findState
 	sel        selection
 	clip       clipboardWriter
 }
@@ -141,7 +145,8 @@ func (lp *LogPanel) SetCopyMode(on bool) {
 		lp.cur = cursor{line: minInt(lp.vp.YOffset, maxInt(0, len(lp.rawLines)-1))}
 		lp.clampCol()
 	} else {
-		lp.pendingG = false
+		lp.clearTransient()
+		lp.lastFind = findState{}
 		lp.sel = selection{}
 	}
 	lp.vp.Width = max(1, lp.width-3-lp.gutterWidth())

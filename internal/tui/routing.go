@@ -242,6 +242,12 @@ func routeFilter(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // Second Esc inside the window returns to ModeNormal.
 func routeLogFocus(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.Esc) {
+		// Pending operator / count / text-object state takes precedence: Esc
+		// there only clears the command buffer, same as vim.
+		if m.logPanel.ClearPending() {
+			m.logEscArmedAt = time.Time{}
+			return m, nil
+		}
 		if m.logPanel.HasSelection() {
 			m.logPanel.ClearSelection()
 			m.logEscArmedAt = time.Time{}

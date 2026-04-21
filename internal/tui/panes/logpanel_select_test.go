@@ -30,12 +30,26 @@ func runYank(t *testing.T, lp *LogPanel) tea.Msg {
 	return cmd()
 }
 
-func TestYank_NoSelection_CopiesCurrentLine(t *testing.T) {
+// runYY yanks the current line via `yy` (vim-style) for tests that exercise
+// the no-selection yank path — replacing the old bare-`y` shortcut.
+func runYY(t *testing.T, lp *LogPanel) tea.Msg {
+	t.Helper()
+	if cmd := lp.HandleCopyKey(keyMsg("y")); cmd != nil {
+		t.Fatal("first y in yy should not yet produce a tea.Cmd")
+	}
+	cmd := lp.HandleCopyKey(keyMsg("y"))
+	if cmd == nil {
+		t.Fatal("second y in yy should produce a tea.Cmd")
+	}
+	return cmd()
+}
+
+func TestYank_YY_CopiesCurrentLine(t *testing.T) {
 	lp := newCopyPanel(t, []string{"first", "second", "third"})
 	fc := &fakeClip{}
 	lp.SetClipboard(fc)
 	lp.HandleCopyKey(keyMsg("j"))
-	msg := runYank(t, lp)
+	msg := runYY(t, lp)
 	if _, ok := msg.(CopiedMsg); !ok {
 		t.Fatalf("want CopiedMsg, got %T", msg)
 	}
@@ -76,11 +90,11 @@ func TestYank_Linewise_MultiLine(t *testing.T) {
 	}
 }
 
-func TestYank_ExitsCopyMode(t *testing.T) {
+func TestYank_YY_ReportsLineMeta(t *testing.T) {
 	lp := newCopyPanel(t, []string{"hello"})
 	fc := &fakeClip{}
 	lp.SetClipboard(fc)
-	msg := runYank(t, lp)
+	msg := runYY(t, lp)
 	copied, ok := msg.(CopiedMsg)
 	if !ok {
 		t.Fatalf("want CopiedMsg, got %T", msg)
@@ -93,7 +107,7 @@ func TestYank_ExitsCopyMode(t *testing.T) {
 func TestYank_ClipboardErrorSurfaces(t *testing.T) {
 	lp := newCopyPanel(t, []string{"hi"})
 	lp.SetClipboard(&fakeClip{fail: errors.New("no pbcopy")})
-	msg := runYank(t, lp)
+	msg := runYY(t, lp)
 	fail, ok := msg.(CopyFailedMsg)
 	if !ok {
 		t.Fatalf("want CopyFailedMsg, got %T", msg)

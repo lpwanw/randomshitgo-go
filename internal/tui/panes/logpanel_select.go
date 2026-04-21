@@ -85,13 +85,25 @@ func (lp *LogPanel) handleVisual(msg tea.KeyMsg) (consumed bool, cmd tea.Cmd) {
 		lp.paintMatches()
 		return true, nil
 	case "y":
-		text := lp.yankText()
-		return true, lp.yankCmd(text)
-	case "Y":
-		// Force linewise on the current line, then yank.
-		lp.sel = selection{mode: selLine, anchor: lp.cur}
+		// Visual-y yanks the current selection immediately. No selection? Fall
+		// through so the operator state machine can treat `y` as the start of
+		// `y{motion}` / `yi{obj}` / `yy`.
+		if lp.sel.mode == selNone {
+			return false, nil
+		}
 		text := lp.yankText()
 		lp.sel = selection{}
+		return true, lp.yankCmd(text)
+	case "Y":
+		// Force linewise on the current line, then yank. Count-aware via the
+		// operator machine: `2Y` yanks two lines.
+		n := lp.effectiveCount()
+		lp.clearTransient()
+		r := lineRange(lp.cur.line, n, len(lp.rawLines))
+		text := lp.extractRange(r)
+		if text == "" {
+			return true, nil
+		}
 		return true, lp.yankCmd(text)
 	}
 	return false, nil

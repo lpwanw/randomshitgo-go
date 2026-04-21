@@ -139,26 +139,56 @@ inert — only vim motions and yank commands are active. Focus persists
 across multiple yanks; to return to process-switching press **`Esc`
 twice** within 2 seconds (mirrors the double-Ctrl-C quit pattern).
 
-| Key | Action (inside log focus) |
-|-----|---------------------------|
-| `h` / `j` / `k` / `l` | Move cursor (also arrow keys) |
-| `w` / `b` | Next / prev word |
-| `0` / `$` | Line start / end |
-| `gg` / `G` | Buffer top / bottom |
-| `Ctrl-u` / `Ctrl-d` | Half-page up / down |
-| `Ctrl-b` / `Ctrl-f` | Full-page up / down |
-| `H` / `M` / `L` | Viewport top / middle / bottom |
-| `/` | Open filter bar (same as Normal) |
-| `n` / `N` | Jump cursor to next / prev filter match |
-| `v` / `V` | Start char-wise / line-wise selection |
-| `y` | Yank selection (or current line) to system clipboard, **stay in focus** |
-| `Y` | Yank current line, stay in focus |
-| `Esc` (1st) | Cancel selection if any, else arm exit |
-| `Esc` (2nd, within 2s) | Return to sidebar / process-switching |
+Counts work in front of any motion or operator: `3w`, `2yy`, `y3e`,
+`3f.`. The command buffer shows up in the status bar while you type
+(`3yi` …) so multi-key commands are discoverable.
 
-The status label flips `NORMAL` → `LOG` → `COPY` as focus and selection
-change. The line-number gutter is always shown while log focus is active;
-outside focus, toggle it via `:set nu` / `:set nonu` from the command bar.
+**Motions:**
+
+| Key | Moves to |
+|-----|----------|
+| `h j k l` / arrows | char / line |
+| `w W` | next word / WORD |
+| `b B` | prev word / WORD |
+| `e E` | end of (WORD-)word forward |
+| `ge gE` | end of (WORD-)word backward |
+| `0 ^ $` | line start / first-non-blank / end |
+| `+ -` | next / prev line first-non-blank |
+| `gg G` | buffer top / bottom |
+| `Ctrl-u / d` | half-page up / down |
+| `Ctrl-b / f` | full-page up / down |
+| `H M L` | viewport top / mid / bottom |
+| `f{c} F{c}` | find char forward / backward (current line) |
+| `t{c} T{c}` | till char (stop one before) |
+| `; ,` | repeat last find (same / reverse direction) |
+| `/` `n` `N` | filter bar; cursor-jump to next / prev match |
+
+**Visual + yank:**
+
+| Key | Action |
+|-----|--------|
+| `v V`         | char / line visual |
+| `y` (visual)  | yank selection → clipboard |
+| `yy` / `Y`    | yank current line (count: `3yy`) |
+| `y{motion}`   | yank to motion target (`yw`, `y3e`, `yf.`, `y$`) |
+
+**Text objects (current-line scoped):**
+
+| Object | Meaning |
+|--------|---------|
+| `iw aw` / `iW aW` | inner / around word (WORD) |
+| `` i" a" / i' a' / i` a` `` | inner / around quote pair |
+| `i( a( i) a)` | inner / around parens |
+| `i[ a[ i] a]` | inner / around brackets |
+| `i{ a{ i} a}` | inner / around braces |
+| `i< a< i> a>` | inner / around angle brackets |
+
+**Exit:** first `Esc` cancels any pending operator, count, or
+selection; second `Esc` within 2 s returns to sidebar / process
+switching. The status label flips `NORMAL` → `LOG` → `COPY` as focus
+and selection change. The line-number gutter is always shown while log
+focus is active; outside focus, toggle it via `:set nu` / `:set nonu`
+from the command bar.
 
 ## Attach Mode
 

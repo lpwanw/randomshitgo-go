@@ -139,12 +139,12 @@ func TestCopy_EnsureCursorVisibleScrolls(t *testing.T) {
 func TestCopy_PendingGClearsOnExit(t *testing.T) {
 	lp := newCopyPanel(t, []string{"a", "b"})
 	lp.HandleCopyKey(keyMsg("g"))
-	if !lp.pendingG {
-		t.Error("pendingG should be set after first g")
+	if lp.pending != pendG {
+		t.Error("pending should be pendG after first g")
 	}
 	lp.SetCopyMode(false)
-	if lp.pendingG {
-		t.Error("pendingG should be cleared on copy-mode exit")
+	if lp.pending != pendNone {
+		t.Error("pending should be cleared on copy-mode exit")
 	}
 }
 
