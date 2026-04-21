@@ -10,15 +10,17 @@ type Set struct {
 	Group   GroupPicker
 	Branch  BranchPicker
 	Filter  FilterInput
+	Command CommandInput
 	Toasts  ToastStack
 }
 
 // NewSet constructs a Set with sane defaults.
 func NewSet(groups map[string][]string, branches []string) Set {
 	return Set{
-		Help:   NewHelpOverlay(),
-		Group:  NewGroupPicker(groups),
-		Branch: NewBranchPicker(branches),
-		Filter: NewFilterInput(),
+		Help:    NewHelpOverlay(),
+		Group:   NewGroupPicker(groups),
+		Branch:  NewBranchPicker(branches),
+		Filter:  NewFilterInput(),
+		Command: NewCommandInput(),
 	}
 }

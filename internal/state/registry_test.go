@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/taynguyen/procs/internal/config"
+	"github.com/lpwanw/randomshitgo-go/internal/config"
 )
 
 func makeTestRegistrySettings(t *testing.T) config.Settings {

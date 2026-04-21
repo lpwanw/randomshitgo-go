@@ -6,18 +6,22 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/taynguyen/procs/internal/config"
-	"github.com/taynguyen/procs/internal/log"
-	"github.com/taynguyen/procs/internal/process"
-	"github.com/taynguyen/procs/internal/state"
-	"github.com/taynguyen/procs/internal/tui/overlays"
-	"github.com/taynguyen/procs/internal/tui/panes"
+	"github.com/lpwanw/randomshitgo-go/internal/config"
+	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/randomshitgo-go/internal/process"
+	"github.com/lpwanw/randomshitgo-go/internal/state"
+	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
+	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
 )
 
 const (
-	sidebarMinWidth = 24
-	sidebarMaxWidth = 40
+	sidebarMinWidth = 16
+	sidebarMaxWidth = 36
 	statusBarHeight = 1
+	// quitArmWindow is how long the first Ctrl+C stays "armed" waiting for a
+	// second press. After the window elapses the next Ctrl+C re-arms instead
+	// of quitting, matching Claude CLI's double-tap-to-exit pattern.
+	quitArmWindow = 2 * time.Second
 )
 
 // Model is the root Bubble Tea model for the procs TUI.
@@ -46,6 +50,11 @@ type Model struct {
 	// status-bar live data (keyed by project ID, refreshed on 2s tick)
 	lastGitInfo map[string]gitInfoCache
 	lastPort    map[string]int
+
+	// quitArmedAt is the timestamp of the most recent Ctrl+C that did NOT
+	// quit. Zero value = disarmed. A second Ctrl+C within quitArmWindow
+	// triggers graceful quit; any other routed key resets it.
+	quitArmedAt time.Time
 }
 
 // gitInfoCache stores git info for a project.
@@ -114,9 +123,14 @@ func (m Model) View() string {
 			Render(fmt.Sprintf("Terminal too small: %d×%d (need ≥60×10)", m.width, m.height))
 	}
 
-	sidebarW := sidebarWidth(m.width)
+	sidebarW := sidebarWidth(m.width, m.cfg)
 	logW := m.width - sidebarW
 	contentH := m.height - statusBarHeight
+	filterVisible := m.overlays.Filter.Visible()
+	commandVisible := m.overlays.Command.Visible()
+	if filterVisible || commandVisible {
+		contentH -= 1 // reserve one row for the search / command bar
+	}
 
 	m.sidebar.SetSize(sidebarW, contentH)
 	m.logPanel.SetSize(logW, contentH)
@@ -128,6 +142,8 @@ func (m Model) View() string {
 	m.statusBar.Total = len(m.lastRuntimeSnap)
 	m.statusBar.Index = m.sidebar.Cursor()
 	m.statusBar.FilterText = uiSnap.FilterText
+	m.statusBar.FilterTotal = m.logPanel.MatchCount()
+	m.statusBar.FilterIndex = m.logPanel.MatchCursor()
 
 	// Populate live status-bar segments from cached git+port info.
 	if sel := uiSnap.SelectedID; sel != "" {
@@ -156,32 +172,40 @@ func (m Model) View() string {
 		m.sidebar.View(),
 		m.logPanel.View(),
 	)
-	base := lipgloss.JoinVertical(lipgloss.Left, main, m.statusBar.View())
+	var base string
+	switch {
+	case commandVisible:
+		cmdRow := m.overlays.Command.View(m.width)
+		base = lipgloss.JoinVertical(lipgloss.Left, main, cmdRow, m.statusBar.View())
+	case filterVisible:
+		filterRow := m.overlays.Filter.View(m.width)
+		base = lipgloss.JoinVertical(lipgloss.Left, main, filterRow, m.statusBar.View())
+	default:
+		base = lipgloss.JoinVertical(lipgloss.Left, main, m.statusBar.View())
+	}
 	base = applyOverlay(m, base)
 	base = applyToasts(m, base)
 	return base
 }
 
-// applyOverlay renders the active overlay on top of base (first visible wins).
+// applyOverlay composes the active popup onto base as a centered floating box.
+// The surrounding UI (sidebar, log, status, filter bar) stays visible around
+// the popup — see overlayCenter. First visible wins. The filter bar is
+// rendered inline in View and intentionally skipped here.
 func applyOverlay(m Model, base string) string {
 	if m.overlays.Help.Visible() {
 		if v := m.overlays.Help.View(m.keys, m.width, m.height); v != "" {
-			return v
+			return overlayCenter(base, v, m.width, m.height)
 		}
 	}
 	if m.overlays.Group.Visible() {
 		if v := m.overlays.Group.View(m.width, m.height); v != "" {
-			return v
+			return overlayCenter(base, v, m.width, m.height)
 		}
 	}
 	if m.overlays.Branch.Visible() {
 		if v := m.overlays.Branch.View(m.width, m.height); v != "" {
-			return v
-		}
-	}
-	if m.overlays.Filter.Visible() {
-		if v := m.overlays.Filter.View(m.width, m.height); v != "" {
-			return v
+			return overlayCenter(base, v, m.width, m.height)
 		}
 	}
 	return base
@@ -202,14 +226,36 @@ func applyToasts(m Model, base string) string {
 
 // ---- helpers ----
 
-// sidebarWidth returns the sidebar width based on total width (30%, clamped).
-func sidebarWidth(totalWidth int) int {
-	w := totalWidth * 30 / 100
+// sidebarWidth returns the sidebar width tailored to fit the widest configured
+// project ID (plus the glyph + restart suffix + border). Clamped so it never
+// shrinks below a readable minimum or dominates the log panel on narrow
+// terminals. Falls back to a small default when no projects are configured.
+func sidebarWidth(totalWidth int, cfg *config.Config) int {
+	const titleLen = len("PROCESSES")
+	// Per-row layout inside the sidebar (see panes/sidebar.go):
+	//   "<glyph> <id>[ (×N)]"  fits within innerW-3, so required content
+	//   width = longestID + 3 (glyph+spaces) + 5 (worst case " (×99)").
+	const rowOverhead = 3 + 5
+
+	longest := titleLen
+	if cfg != nil {
+		for id := range cfg.Projects {
+			if l := len(id) + rowOverhead; l > longest {
+				longest = l
+			}
+		}
+	}
+	w := longest + 2 // +2 for the border cells
+
 	if w < sidebarMinWidth {
 		w = sidebarMinWidth
 	}
 	if w > sidebarMaxWidth {
 		w = sidebarMaxWidth
+	}
+	// Never let the sidebar eat more than half the terminal.
+	if w > totalWidth/2 {
+		w = totalWidth / 2
 	}
 	return w
 }

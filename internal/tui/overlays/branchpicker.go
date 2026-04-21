@@ -3,7 +3,6 @@ package overlays
 import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // CheckoutBranchMsg is emitted when the user selects a branch.
@@ -72,8 +71,9 @@ func (bp BranchPicker) Update(msg tea.KeyMsg) (BranchPicker, tea.Cmd) {
 	return bp, nil
 }
 
-// View renders the branch picker centred in width×height.
-func (bp *BranchPicker) View(width, height int) string {
+// View renders the branch picker as a compact bordered box. Caller composes it
+// onto the main canvas (tui.overlayCenter) — do NOT lipgloss.Place to width×height.
+func (bp *BranchPicker) View(_ int, _ int) string {
 	if !bp.visible {
 		return ""
 	}
@@ -82,7 +82,7 @@ func (bp *BranchPicker) View(width, height int) string {
 	var rows string
 	for i, b := range bp.branches {
 		if i == bp.cursor {
-			rows += lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("62")).Render("> "+b) + "\n"
+			rows += stylePickerSelected.Render("> "+b) + "\n"
 		} else {
 			rows += stylePickerNormal.Render("  "+b) + "\n"
 		}
@@ -91,6 +91,5 @@ func (bp *BranchPicker) View(width, height int) string {
 		rows = stylePickerNormal.Render("(no branches)") + "\n"
 	}
 
-	box := stylePickerBox.Render(title + "\n" + rows)
-	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
+	return stylePickerBox.Render(title + "\n" + rows)
 }

@@ -3,8 +3,8 @@ package tui
 import (
 	"time"
 
-	"github.com/taynguyen/procs/internal/gitinfo"
-	"github.com/taynguyen/procs/internal/state"
+	"github.com/lpwanw/randomshitgo-go/internal/gitinfo"
+	"github.com/lpwanw/randomshitgo-go/internal/state"
 )
 
 // RuntimeChangedMsg is sent when the RuntimeStore notifies of a state change.

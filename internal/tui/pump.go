@@ -4,7 +4,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/taynguyen/procs/internal/state"
+	"github.com/lpwanw/randomshitgo-go/internal/state"
 )
 
 // subscribeRuntime returns a Cmd that blocks on the RuntimeStore notification

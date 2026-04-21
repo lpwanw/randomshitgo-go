@@ -7,11 +7,11 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/taynguyen/procs/internal/config"
-	"github.com/taynguyen/procs/internal/event"
-	"github.com/taynguyen/procs/internal/process"
-	"github.com/taynguyen/procs/internal/state"
-	"github.com/taynguyen/procs/internal/tui"
+	"github.com/lpwanw/randomshitgo-go/internal/config"
+	"github.com/lpwanw/randomshitgo-go/internal/event"
+	"github.com/lpwanw/randomshitgo-go/internal/process"
+	"github.com/lpwanw/randomshitgo-go/internal/state"
+	"github.com/lpwanw/randomshitgo-go/internal/tui"
 )
 
 // Build-time variables — injected via ldflags.
@@ -36,7 +36,7 @@ Flags:
   --version            print version
   -h, --help           this text
 
-Config: https://github.com/taynguyen/procs/blob/main/examples/config.yml
+Config: https://github.com/lpwanw/randomshitgo-go/blob/main/examples/config.yml
 `)
 	}
 

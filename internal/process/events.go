@@ -1,6 +1,6 @@
 package process
 
-import "github.com/taynguyen/procs/internal/event"
+import "github.com/lpwanw/randomshitgo-go/internal/event"
 
 // Re-export event types so callers only need one import.
 type Event = event.Event

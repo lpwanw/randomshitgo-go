@@ -53,22 +53,23 @@ func (ho *HelpOverlay) Hide() { ho.visible = false }
 // Visible reports whether the overlay is currently shown.
 func (ho *HelpOverlay) Visible() bool { return ho.visible }
 
-// View renders the help overlay centred inside width×height.
-// Returns "" when not visible.
-func (ho *HelpOverlay) View(keymap KeyMapProvider, width, height int) string {
+// View renders the help overlay as a compact bordered box sized to content.
+// Returns "" when not visible. The caller composes the box onto the main
+// canvas via tui.overlayCenter — this function MUST NOT call lipgloss.Place
+// with width×height, or the surrounding UI would be blanked out.
+func (ho *HelpOverlay) View(keymap KeyMapProvider, width, _ int) string {
 	if !ho.visible {
 		return ""
 	}
 
-	ho.h.Width = 60
+	boxW := 60
+	if maxW := width - 4; maxW > 0 && boxW > maxW {
+		boxW = maxW
+	}
+	ho.h.Width = boxW
 
 	title := styleHelpTitle.Render("Keybindings")
 	body := ho.h.FullHelpView(keymap.FullHelp())
 
-	box := styleHelpBox.Render(title + "\n" + body)
-
-	return lipgloss.Place(width, height,
-		lipgloss.Center, lipgloss.Center,
-		box,
-	)
+	return styleHelpBox.Render(title + "\n" + body)
 }

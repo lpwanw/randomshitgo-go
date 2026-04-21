@@ -18,7 +18,7 @@ linters:
 
 linters-settings:
   goimports:
-    local-prefixes: github.com/taynguyen/procs
+    local-prefixes: github.com/lpwanw/randomshitgo-go
 
 issues:
   exclude-rules:

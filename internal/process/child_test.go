@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/taynguyen/procs/internal/config"
-	"github.com/taynguyen/procs/internal/log"
+	"github.com/lpwanw/randomshitgo-go/internal/config"
+	"github.com/lpwanw/randomshitgo-go/internal/log"
 )
 
 // noopRegistry discards all writes.

@@ -97,8 +97,9 @@ func (gp GroupPicker) Update(msg tea.KeyMsg) (GroupPicker, tea.Cmd) {
 	return gp, nil
 }
 
-// View renders the group picker centred in width×height.
-func (gp *GroupPicker) View(width, height int) string {
+// View renders the group picker as a compact bordered box. Caller composes it
+// onto the main canvas (tui.overlayCenter) — do NOT lipgloss.Place to width×height.
+func (gp *GroupPicker) View(_ int, _ int) string {
 	if !gp.visible {
 		return ""
 	}
@@ -117,8 +118,7 @@ func (gp *GroupPicker) View(width, height int) string {
 		rows = stylePickerNormal.Render("(no groups configured)") + "\n"
 	}
 
-	box := stylePickerBox.Render(title + "\n" + rows)
-	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
+	return stylePickerBox.Render(title + "\n" + rows)
 }
 
 // sortStrings is a simple insertion sort to avoid importing sort.

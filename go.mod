@@ -1,4 +1,4 @@
-module github.com/taynguyen/procs
+module github.com/lpwanw/randomshitgo-go
 
 go 1.26.2
 

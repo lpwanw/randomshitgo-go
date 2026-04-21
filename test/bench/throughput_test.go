@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/taynguyen/procs/internal/log"
+	"github.com/lpwanw/randomshitgo-go/internal/log"
 )
 
 // BenchmarkRingBufferPush measures raw push throughput for RingBuffer.

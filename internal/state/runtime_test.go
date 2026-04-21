@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/taynguyen/procs/internal/event"
+	"github.com/lpwanw/randomshitgo-go/internal/event"
 )
 
 func TestRuntimeStore_Seed(t *testing.T) {

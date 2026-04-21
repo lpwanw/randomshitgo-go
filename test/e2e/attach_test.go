@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/taynguyen/procs/internal/config"
-	"github.com/taynguyen/procs/internal/event"
-	"github.com/taynguyen/procs/internal/process"
-	"github.com/taynguyen/procs/internal/tui/attach"
+	"github.com/lpwanw/randomshitgo-go/internal/config"
+	"github.com/lpwanw/randomshitgo-go/internal/event"
+	"github.com/lpwanw/randomshitgo-go/internal/process"
+	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
 )
 
 // pipeFiles creates a pair of *os.File pipes for use in tests.

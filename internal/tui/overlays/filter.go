@@ -7,22 +7,20 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 var (
-	styleFilterBox = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("62")).
-			Padding(0, 1).
-			Width(50).
-			Background(lipgloss.Color("234"))
-
-	styleFilterLabel = lipgloss.NewStyle().
+	styleFilterPrompt = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("212")).
 				Bold(true)
 
 	styleFilterErr = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196"))
+
+	styleFilterBar = lipgloss.NewStyle().
+			Background(lipgloss.Color("236")).
+			Foreground(lipgloss.Color("252"))
 )
 
 // FilterCommitMsg is emitted when the user presses Enter in the filter input.
@@ -36,7 +34,9 @@ type FilterCommitMsg struct {
 // FilterCancelMsg is emitted when the user presses Esc in the filter input.
 type FilterCancelMsg struct{}
 
-// FilterInput wraps a textinput and emits commit/cancel messages.
+// FilterInput wraps a textinput and emits commit/cancel messages. It renders as
+// a single-line bar meant to sit at the bottom of the frame (vim `/` style),
+// NOT a modal — do not wrap the output in lipgloss.Place.
 type FilterInput struct {
 	ti      textinput.Model
 	visible bool
@@ -46,9 +46,10 @@ type FilterInput struct {
 // NewFilterInput creates a ready FilterInput.
 func NewFilterInput() FilterInput {
 	ti := textinput.New()
-	ti.Placeholder = "regex filter (case-insensitive)…"
+	ti.Prompt = ""
+	ti.Placeholder = "regex (case-insensitive)"
 	ti.CharLimit = 200
-	ti.Width = 46
+	ti.Width = 60
 	return FilterInput{ti: ti}
 }
 
@@ -101,7 +102,6 @@ func (fi FilterInput) Update(msg tea.Msg) (FilterInput, tea.Cmd) {
 				fi.errMsg = fmt.Sprintf("invalid regex: %v", err)
 				fi.visible = true
 				fi.ti.Focus()
-				// Emit show-toast via ShowToastMsg — caller handles toast.
 				return fi, func() tea.Msg {
 					return ShowToastMsg{Text: fi.errMsg, Level: 1}
 				}
@@ -119,22 +119,32 @@ func (fi FilterInput) Update(msg tea.Msg) (FilterInput, tea.Cmd) {
 	return fi, cmd
 }
 
-// View renders the filter input centred in width×height.
-func (fi *FilterInput) View(width, height int) string {
+// View renders the filter bar as a single row sized to width. Returns "" when
+// the bar is hidden. The caller is responsible for placing the row into the
+// frame (e.g. above the status bar) — this method MUST NOT pad vertically.
+func (fi *FilterInput) View(width int) string {
 	if !fi.visible {
 		return ""
 	}
-
-	label := styleFilterLabel.Render("/ Filter: ")
-	input := fi.ti.View()
-
-	errLine := ""
-	if fi.errMsg != "" {
-		errLine = "\n" + styleFilterErr.Render(fi.errMsg)
+	if width <= 0 {
+		width = 80
 	}
 
-	box := styleFilterBox.Render(label + input + errLine)
-	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
+	prompt := styleFilterPrompt.Render("/")
+	input := fi.ti.View()
+	left := prompt + input
+
+	suffix := ""
+	if fi.errMsg != "" {
+		suffix = "  " + styleFilterErr.Render(fi.errMsg)
+	}
+
+	bar := left + suffix
+	// Clamp to width (ansi-aware) and pad right so the bar fills the row.
+	if ansi.StringWidth(bar) > width {
+		bar = ansi.Truncate(bar, width, "…")
+	}
+	return styleFilterBar.Width(width).Render(bar)
 }
 
 // ShowToastMsg duplicates the tui-level type to avoid import cycle.

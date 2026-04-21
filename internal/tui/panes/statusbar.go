@@ -39,8 +39,10 @@ type StatusBar struct {
 	GitAhead   int
 	GitBehind  int
 	GitDirty   bool
-	FilterText string
-	Width      int
+	FilterText  string
+	FilterIndex int // 1-based position of the current jump target; 0 = none
+	FilterTotal int // total number of filter matches
+	Width       int
 }
 
 // View renders a single-line status bar, clipped to Width.
@@ -92,10 +94,19 @@ func (sb *StatusBar) View() string {
 		gitSeg = sep + styleBarDim.Render(fmt.Sprintf("git:%s%s%s%s", sb.GitBranch, dirty, ahead, behind))
 	}
 
-	// filter
+	// filter — includes match counter when a pattern is active.
 	filterSeg := ""
 	if sb.FilterText != "" {
-		filterSeg = sep + styleBarDim.Render(fmt.Sprintf("filter:%s", sb.FilterText))
+		body := fmt.Sprintf("/%s", sb.FilterText)
+		switch {
+		case sb.FilterTotal == 0:
+			body += "  [no match]"
+		case sb.FilterIndex > 0:
+			body += fmt.Sprintf("  [%d/%d]", sb.FilterIndex, sb.FilterTotal)
+		default:
+			body += fmt.Sprintf("  [%d]", sb.FilterTotal)
+		}
+		filterSeg = sep + styleBarDim.Render(body)
 	}
 
 	parts := []string{mode, " "}

@@ -21,18 +21,18 @@ so you can type directly into any child process.
 
 **Go install (requires Go 1.22+):**
 ```sh
-go install github.com/taynguyen/procs/cmd/procs@latest
+go install github.com/lpwanw/randomshitgo-go/cmd/procs@latest
 ```
 
 **From source:**
 ```sh
-git clone https://github.com/taynguyen/procs
-cd procs
+git clone https://github.com/lpwanw/randomshitgo-go
+cd randomshitgo-go
 make install        # installs to /usr/local/bin/procs
 ```
 
 **Direct binary (macOS/Linux):**
-Download from [Releases](https://github.com/taynguyen/procs/releases), extract, and place on `$PATH`.
+Download from [Releases](https://github.com/lpwanw/randomshitgo-go/releases), extract, and place on `$PATH`.
 
 **Homebrew:** Tap coming in a future release.
 

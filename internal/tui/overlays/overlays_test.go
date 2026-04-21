@@ -174,6 +174,30 @@ func TestFilterInput_Esc_EmitsCancelMsg(t *testing.T) {
 	}
 }
 
+func TestFilterInput_View_IsSingleLineBar(t *testing.T) {
+	fi := NewFilterInput()
+	fi.Show()
+	fi.SetValue("err")
+
+	view := fi.View(60)
+	if view == "" {
+		t.Fatal("visible filter should render non-empty view")
+	}
+	if strings.Contains(view, "\n") {
+		t.Errorf("filter bar must be single-line, got newline in %q", view)
+	}
+	if !strings.Contains(view, "/") {
+		t.Errorf("filter bar must start with '/' prompt, got %q", view)
+	}
+}
+
+func TestFilterInput_View_HiddenReturnsEmpty(t *testing.T) {
+	fi := NewFilterInput()
+	if v := fi.View(60); v != "" {
+		t.Errorf("hidden filter must return empty view, got %q", v)
+	}
+}
+
 func TestFilterInput_EmptyEnter_EmitsCommitWithNilRegex(t *testing.T) {
 	fi := NewFilterInput()
 	fi.Show()
@@ -190,6 +214,75 @@ func TestFilterInput_EmptyEnter_EmitsCommitWithNilRegex(t *testing.T) {
 	}
 	if commit.Regex != nil {
 		t.Error("empty filter should have nil Regex")
+	}
+}
+
+// ---- CommandInput tests ----
+
+func TestCommandInput_EnterWithText_EmitsRunMsg(t *testing.T) {
+	ci := NewCommandInput()
+	ci.Show()
+	ci.ti.SetValue("q")
+
+	ci2, cmd := ci.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter should return a Cmd")
+	}
+	msg := cmd()
+	run, ok := msg.(CommandRunMsg)
+	if !ok {
+		t.Fatalf("expected CommandRunMsg, got %T", msg)
+	}
+	if run.Text != "q" {
+		t.Errorf("CommandRunMsg.Text: want %q, got %q", "q", run.Text)
+	}
+	if ci2.Visible() {
+		t.Error("command bar must hide after Enter")
+	}
+}
+
+func TestCommandInput_EmptyEnter_EmitsCancel(t *testing.T) {
+	ci := NewCommandInput()
+	ci.Show()
+
+	_, cmd := ci.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter with empty input should still return a Cmd")
+	}
+	if _, ok := cmd().(CommandCancelMsg); !ok {
+		t.Fatalf("empty Enter should emit CommandCancelMsg, got %T", cmd())
+	}
+}
+
+func TestCommandInput_Esc_EmitsCancel(t *testing.T) {
+	ci := NewCommandInput()
+	ci.Show()
+	ci.ti.SetValue("anything")
+
+	ci2, cmd := ci.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd == nil {
+		t.Fatal("Esc should return a Cmd")
+	}
+	if _, ok := cmd().(CommandCancelMsg); !ok {
+		t.Fatalf("Esc should emit CommandCancelMsg, got %T", cmd())
+	}
+	if ci2.Visible() {
+		t.Error("command bar must hide after Esc")
+	}
+}
+
+func TestCommandInput_View_IsSingleLineBar(t *testing.T) {
+	ci := NewCommandInput()
+	ci.Show()
+	view := ci.View(60)
+	if view == "" {
+		t.Fatal("visible command bar should render non-empty")
+	}
+	if strings.Contains(view, "\n") {
+		t.Errorf("command bar must be single-line, got newline: %q", view)
+	}
+	if !strings.Contains(view, ":") {
+		t.Errorf("command bar must start with ':' prompt, got %q", view)
 	}
 }
 

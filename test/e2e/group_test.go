@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/taynguyen/procs/internal/config"
-	"github.com/taynguyen/procs/internal/event"
+	"github.com/lpwanw/randomshitgo-go/internal/config"
+	"github.com/lpwanw/randomshitgo-go/internal/event"
 )
 
 // TestStartGroupOrdering verifies that StartGroup starts processes with proper

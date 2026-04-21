@@ -17,6 +17,8 @@ const (
 	ModeAttach
 	// ModeHelp is active when the keybinding cheatsheet overlay is shown.
 	ModeHelp
+	// ModeCommand is active when the vim-style `:` command bar is open.
+	ModeCommand
 )
 
 // String returns a short human-readable label for the mode.
@@ -34,6 +36,8 @@ func (m Mode) String() string {
 		return "ATTACH"
 	case ModeHelp:
 		return "HELP"
+	case ModeCommand:
+		return "COMMAND"
 	default:
 		return "UNKNOWN"
 	}

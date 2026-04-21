@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/taynguyen/procs/internal/state"
+	"github.com/lpwanw/randomshitgo-go/internal/state"
 )
 
 // Row holds display data for a single sidebar entry.
@@ -35,6 +35,11 @@ var (
 
 	styleNormal = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252"))
+
+	// styleQuickJumpPrefix renders the dim "1 ".."9 " prefix on the first
+	// nine rows so the quick-jump digit bindings are discoverable at a glance.
+	styleQuickJumpPrefix = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240"))
 
 	styleGlyphRunning = lipgloss.NewStyle().Foreground(lipgloss.Color("40"))  // green
 	styleGlyphIdle    = lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // grey
@@ -77,6 +82,21 @@ func (s *Sidebar) SetRows(snapshot []state.ProjectRuntime) {
 	if s.cursor >= len(s.rows) && len(s.rows) > 0 {
 		s.cursor = len(s.rows) - 1
 	}
+}
+
+// Len returns the number of rows currently rendered.
+func (s *Sidebar) Len() int { return len(s.rows) }
+
+// SetCursor moves the cursor to the given zero-based row. Out-of-range values
+// are silently ignored; on an empty sidebar this is a no-op.
+func (s *Sidebar) SetCursor(i int) {
+	if len(s.rows) == 0 {
+		return
+	}
+	if i < 0 || i >= len(s.rows) {
+		return
+	}
+	s.cursor = i
 }
 
 // Up moves the cursor up by one, clamped to the top.
@@ -139,13 +159,23 @@ func (s *Sidebar) View() string {
 			suffix = fmt.Sprintf(" (×%d)", row.Attempts)
 		}
 
-		label := truncate(row.ID+suffix, innerW-3) // 3 = glyph + space + space
+		// Reserve space for a "N " prefix on the first nine rows so the
+		// quick-jump 1..9 digit bindings are discoverable.
+		prefix := ""
+		reserved := 3 // glyph + space + trailing space
+		if i < 9 {
+			prefix = styleQuickJumpPrefix.Render(fmt.Sprintf("%d ", i+1))
+			reserved += 2
+		}
 
+		label := truncate(row.ID+suffix, innerW-reserved)
+
+		rowContent := prefix + styledGlyph + " " + label
 		var line string
 		if i == s.cursor {
-			line = styleSelected.Width(innerW).Render(styledGlyph + " " + label)
+			line = styleSelected.Width(innerW).Render(rowContent)
 		} else {
-			line = styleNormal.Width(innerW).Render(styledGlyph + " " + label)
+			line = styleNormal.Width(innerW).Render(rowContent)
 		}
 		b.WriteString(line)
 		b.WriteString("\n")

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/taynguyen/procs/internal/config"
+	"github.com/lpwanw/randomshitgo-go/internal/config"
 )
 
 const eventsBufSize = 256

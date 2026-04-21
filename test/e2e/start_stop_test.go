@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/taynguyen/procs/internal/config"
-	"github.com/taynguyen/procs/internal/event"
-	"github.com/taynguyen/procs/internal/process"
+	"github.com/lpwanw/randomshitgo-go/internal/config"
+	"github.com/lpwanw/randomshitgo-go/internal/event"
+	"github.com/lpwanw/randomshitgo-go/internal/process"
 )
 
 // TestStartStopCycle starts a long-running process, waits for it to be running,

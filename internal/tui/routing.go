@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/taynguyen/procs/internal/process"
-	"github.com/taynguyen/procs/internal/tui/overlays"
+	"github.com/lpwanw/randomshitgo-go/internal/process"
+	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
 )
 
 // startCmd returns a tea.Cmd that calls mgr.Start and returns a ShowToastMsg on error.
@@ -52,9 +52,15 @@ func stopAllCmd(mgr *process.Manager, grace time.Duration) tea.Cmd {
 
 // routeKey dispatches key events to the mode-specific handler.
 func routeKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Ctrl+C always quits.
+	// Ctrl+C arms the quit state on first press and fires gracefulQuit only
+	// on the second press within quitArmWindow — see handleCtrlC.
 	if msg.String() == "ctrl+c" {
-		return m, gracefulQuit(m)
+		return handleCtrlC(m)
+	}
+	// Any non-Ctrl+C key disarms a previous Ctrl+C so an unrelated keystroke
+	// does not silently leave the user one tap away from quitting.
+	if !m.quitArmedAt.IsZero() {
+		m.quitArmedAt = time.Time{}
 	}
 
 	switch m.mode {
@@ -68,6 +74,8 @@ func routeKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return routeBranchPicker(m, msg)
 	case ModeFilter:
 		return routeFilter(m, msg)
+	case ModeCommand:
+		return routeCommand(m, msg)
 	case ModeAttach:
 		if key.Matches(msg, m.keys.Esc) {
 			m.mode = ModeNormal
@@ -80,8 +88,14 @@ func routeKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // routeNormal handles all keys in ModeNormal.
 func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.Quit):
-		return m, gracefulQuit(m)
+	// Bare `q` is intentionally NOT bound here. Quit requires `:q` via the
+	// command bar — see handleCommandRun — so an accidental keystroke cannot
+	// stop every managed process. Ctrl+C (m.keys.Quit) is handled in routeKey
+	// as an always-on emergency exit.
+
+	case key.Matches(msg, m.keys.Command):
+		m.mode = ModeCommand
+		m.overlays.Command.Show()
 
 	case key.Matches(msg, m.keys.Help):
 		m.mode = ModeHelp
@@ -99,6 +113,12 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.BranchPicker):
 		return handleBranchPickerOpen(m)
+
+	case key.Matches(msg, m.keys.NextMatch):
+		return handleJumpMatch(m, true)
+
+	case key.Matches(msg, m.keys.PrevMatch):
+		return handleJumpMatch(m, false)
 
 	case key.Matches(msg, m.keys.Up):
 		m.sidebar.Up()
@@ -141,6 +161,14 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		key.Matches(msg, m.keys.Bottom):
 		cmd := m.logPanel.Update(msg)
 		return m, cmd
+	}
+
+	// Quick-jump digits (1..9) — handled after the main switch so the explicit
+	// bindings above win in case of future collisions.
+	for i, k := range m.keys.QuickJumpKeys {
+		if key.Matches(msg, k) {
+			return handleQuickJump(m, i+1)
+		}
 	}
 
 	return m, nil
@@ -190,6 +218,17 @@ func routeFilter(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	updated, cmd := m.overlays.Filter.Update(tea.KeyMsg(msg))
 	m.overlays.Filter = updated
 	if !m.overlays.Filter.Visible() {
+		m.mode = ModeNormal
+	}
+	return m, cmd
+}
+
+// routeCommand delegates to the command overlay. The mode drops back to Normal
+// when the bar closes (Enter/Esc).
+func routeCommand(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	updated, cmd := m.overlays.Command.Update(tea.KeyMsg(msg))
+	m.overlays.Command = updated
+	if !m.overlays.Command.Visible() {
 		m.mode = ModeNormal
 	}
 	return m, cmd

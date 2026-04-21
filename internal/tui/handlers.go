@@ -3,13 +3,14 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/taynguyen/procs/internal/gitinfo"
-	"github.com/taynguyen/procs/internal/netinfo"
-	"github.com/taynguyen/procs/internal/tui/attach"
-	"github.com/taynguyen/procs/internal/tui/overlays"
+	"github.com/lpwanw/randomshitgo-go/internal/gitinfo"
+	"github.com/lpwanw/randomshitgo-go/internal/netinfo"
+	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
+	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
 )
 
 // handleMsg is the central message dispatcher for the root Model.
@@ -81,9 +82,23 @@ func handleMsg(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		uiSnap := m.ui.Snapshot()
 		m.logPanel.SetFilter(uiSnap.FilterRegex)
 		m.statusBar.FilterText = msg.Text
+		// Auto-jump to first match so the user sees it immediately.
+		if uiSnap.FilterRegex != nil {
+			if ok, _ := m.logPanel.JumpNextMatch(); !ok {
+				m.overlays.Toasts.Add("no matches", overlays.ToastWarn)
+			}
+		}
 		return m, nil
 
 	case overlays.FilterCancelMsg:
+		m.mode = ModeNormal
+		return m, nil
+
+	case overlays.CommandRunMsg:
+		m.mode = ModeNormal
+		return dispatchCommand(m, msg.Text)
+
+	case overlays.CommandCancelMsg:
 		m.mode = ModeNormal
 		return m, nil
 
@@ -112,7 +127,7 @@ func handleResize(m Model, msg tea.WindowSizeMsg) Model {
 	m.width = msg.Width
 	m.height = msg.Height
 
-	sidebarW := sidebarWidth(m.width)
+	sidebarW := sidebarWidth(m.width, m.cfg)
 	logW := m.width - sidebarW
 	contentH := m.height - statusBarHeight
 
@@ -264,6 +279,55 @@ func handleStatusRefresh(m Model) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// handleCtrlC implements the double-tap-to-quit pattern. First press arms the
+// quit state and surfaces a warn-level toast hint that lives as long as the
+// arm window. A second Ctrl+C within the window fires gracefulQuit; after the
+// window elapses the next press re-arms instead of quitting.
+func handleCtrlC(m Model) (tea.Model, tea.Cmd) {
+	if !m.quitArmedAt.IsZero() && time.Since(m.quitArmedAt) <= quitArmWindow {
+		return m, gracefulQuit(m)
+	}
+	m.quitArmedAt = time.Now()
+	m.overlays.Toasts.AddWithTTL("Press Ctrl+C again to quit", overlays.ToastWarn, quitArmWindow)
+	return m, nil
+}
+
+// handleQuickJump moves the sidebar cursor to the given 1-based row index and
+// refreshes the selected-project-dependent panes. Out-of-range indices are
+// silently ignored so a stray digit keystroke never surprises the user.
+func handleQuickJump(m Model, n int) (tea.Model, tea.Cmd) {
+	if n < 1 || n-1 >= m.sidebar.Len() {
+		return m, nil
+	}
+	m.sidebar.SetCursor(n - 1)
+	m.syncSelectedToStore()
+	m.refreshLogPanel()
+	return m, nil
+}
+
+// handleJumpMatch moves to the next/previous filter match in the log panel.
+// Emits soft toasts for "no filter", "no matches", and "wrapped".
+func handleJumpMatch(m Model, forward bool) (tea.Model, tea.Cmd) {
+	if m.ui.Snapshot().FilterRegex == nil {
+		m.overlays.Toasts.Add("no filter — press / to search", overlays.ToastInfo)
+		return m, nil
+	}
+	var ok, wrapped bool
+	if forward {
+		ok, wrapped = m.logPanel.JumpNextMatch()
+	} else {
+		ok, wrapped = m.logPanel.JumpPrevMatch()
+	}
+	if !ok {
+		m.overlays.Toasts.Add("no matches", overlays.ToastWarn)
+		return m, nil
+	}
+	if wrapped {
+		m.overlays.Toasts.Add("search wrapped", overlays.ToastInfo)
+	}
+	return m, nil
+}
+
 // handleBranchPickerOpen opens the branch picker for the selected project.
 func handleBranchPickerOpen(m Model) (Model, tea.Cmd) {
 	id := m.sidebar.Selected()
@@ -289,6 +353,21 @@ func handleBranchPickerOpen(m Model) (Model, tea.Cmd) {
 // branchesLoadedMsg is sent when async branch list is ready.
 type branchesLoadedMsg struct {
 	branches []string
+}
+
+// dispatchCommand runs a parsed `:` command. Unknown commands produce a
+// non-destructive error toast so typos don't kill processes.
+func dispatchCommand(m Model, text string) (tea.Model, tea.Cmd) {
+	name := strings.TrimSpace(text)
+	switch name {
+	case "":
+		return m, nil
+	case "q", "quit":
+		return m, gracefulQuit(m)
+	default:
+		m.overlays.Toasts.Add("unknown command: "+name, overlays.ToastErr)
+		return m, nil
+	}
 }
 
 // gracefulQuit stops all processes then emits QuitMsg.
