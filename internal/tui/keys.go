@@ -30,6 +30,13 @@ type KeyMap struct {
 	// QuickJump is a synthetic binding used purely to render a single help row.
 	QuickJumpKeys [9]key.Binding
 	QuickJump     key.Binding
+	// CopyEnter opens vim-style copy mode inside the log panel.
+	CopyEnter key.Binding
+	// CopyMotion, CopyVisual, CopyYank are synthetic bindings used only by
+	// the help overlay to describe what's available once inside copy mode.
+	CopyMotion key.Binding
+	CopyVisual key.Binding
+	CopyYank   key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings.
@@ -134,6 +141,22 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("1", "2", "3", "4", "5", "6", "7", "8", "9"),
 			key.WithHelp("1-9", "jump to project"),
 		),
+		CopyEnter: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "log focus"),
+		),
+		CopyMotion: key.NewBinding(
+			key.WithKeys("hjkl"),
+			key.WithHelp("hjkl/wb/0$/ggG", "copy: move"),
+		),
+		CopyVisual: key.NewBinding(
+			key.WithKeys("v"),
+			key.WithHelp("v/V", "copy: char/line select"),
+		),
+		CopyYank: key.NewBinding(
+			key.WithKeys("y"),
+			key.WithHelp("y/Y", "copy: yank / yank line"),
+		),
 	}
 }
 
@@ -149,6 +172,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Start, k.Restart, k.Stop, k.Attach},
 		{k.GroupPicker, k.BranchPicker, k.StopAll},
 		{k.Filter, k.NextMatch, k.PrevMatch, k.PageUp, k.PageDown, k.Top, k.Bottom},
+		{k.CopyEnter, k.CopyMotion, k.CopyVisual, k.CopyYank},
 		{k.Help, k.Command, k.Quit, k.Esc},
 	}
 }

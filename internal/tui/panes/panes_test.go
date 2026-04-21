@@ -349,6 +349,77 @@ func TestLogPanel_JumpEmpty_NotOK(t *testing.T) {
 	}
 }
 
+// ---- Gutter / copy-mode tests ----
+
+func TestLineNumberWidth(t *testing.T) {
+	cases := map[int]int{0: 1, 1: 1, 9: 1, 10: 2, 99: 2, 100: 3, 999: 3, 1000: 4}
+	for n, want := range cases {
+		if got := lineNumberWidth(n); got != want {
+			t.Errorf("lineNumberWidth(%d): want %d, got %d", n, want, got)
+		}
+	}
+}
+
+func TestLogPanel_GutterOffByDefault(t *testing.T) {
+	lp := NewLogPanel(80, 10)
+	lp.SetLines([]string{"alpha", "beta"})
+	if got := lp.gutterWidth(); got != 0 {
+		t.Errorf("gutter must be 0 when off, got %d", got)
+	}
+	if strings.Contains(lp.vp.View(), "│") {
+		t.Error("viewport should not contain gutter separator when gutter off")
+	}
+}
+
+func TestLogPanel_SetGutterRendersNumbers(t *testing.T) {
+	lp := NewLogPanel(80, 10)
+	lp.SetLines([]string{"first", "second", "third"})
+	lp.SetGutter(true)
+	view := lp.vp.View()
+	// Strip ANSI so we compare plain text only.
+	for _, want := range []string{"1 │ first", "2 │ second", "3 │ third"} {
+		if !strings.Contains(stripANSI(view), want) {
+			t.Errorf("gutter view missing %q; got:\n%s", want, stripANSI(view))
+		}
+	}
+}
+
+func TestLogPanel_CopyModeForcesGutter(t *testing.T) {
+	lp := NewLogPanel(80, 10)
+	lp.SetLines([]string{"a", "b"})
+	lp.SetCopyMode(true)
+	if !lp.InCopyMode() {
+		t.Error("InCopyMode should be true")
+	}
+	if lp.gutterWidth() == 0 {
+		t.Error("copy mode must force gutter on")
+	}
+	if lp.Sticky() {
+		t.Error("copy mode must disable sticky auto-scroll")
+	}
+	lp.SetCopyMode(false)
+	if lp.InCopyMode() {
+		t.Error("InCopyMode should be false after exit")
+	}
+}
+
+func TestLogPanel_GutterShrinksViewportWidth(t *testing.T) {
+	lp := NewLogPanel(80, 10)
+	lp.SetLines([]string{"x"})
+	before := lp.vp.Width
+	lp.SetGutter(true)
+	after := lp.vp.Width
+	if after >= before {
+		t.Errorf("viewport width should shrink with gutter: before=%d after=%d", before, after)
+	}
+}
+
+// stripANSI removes SGR escape sequences from s for substring assertions on
+// rendered gutter output.
+func stripANSI(s string) string {
+	return regexp.MustCompile(`\x1b\[[0-9;]*m`).ReplaceAllString(s, "")
+}
+
 // ---- Scrollbar tests ----
 
 func TestScrollbarColumn_HidesWhenFits(t *testing.T) {
@@ -508,6 +579,18 @@ func TestStatusBar_View_FilterNoMatch(t *testing.T) {
 	view := sb.View()
 	if !strings.Contains(view, "[no match]") {
 		t.Errorf("want [no match] marker, got: %q", view)
+	}
+}
+
+func TestStatusBar_View_CopyCursor(t *testing.T) {
+	sb := &StatusBar{
+		Mode:       "COPY",
+		Width:      140,
+		CopyCursor: "L12:3",
+	}
+	view := sb.View()
+	if !strings.Contains(view, "L12:3") {
+		t.Errorf("copy cursor segment missing: %q", view)
 	}
 }
 

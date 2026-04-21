@@ -56,15 +56,26 @@ var (
 	styleBorder = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("238"))
+
+	// styleBorderDim renders the sidebar border in a dimmer tone so the user
+	// can tell at a glance which pane currently owns the keyboard.
+	styleBorderDim = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("236"))
 )
 
 // Sidebar is the left pane listing all projects.
 type Sidebar struct {
-	rows   []Row
-	cursor int
-	width  int
-	height int
+	rows    []Row
+	cursor  int
+	width   int
+	height  int
+	focused bool // true by default; flips off when log panel owns the keyboard
 }
+
+// SetFocused toggles the focus indicator. Dim border + no-op otherwise —
+// internal state (cursor, rows) is unaffected.
+func (s *Sidebar) SetFocused(on bool) { s.focused = on }
 
 // SetSize updates sidebar dimensions.
 func (s *Sidebar) SetSize(width, height int) {
@@ -187,7 +198,11 @@ func (s *Sidebar) View() string {
 	}
 
 	content := b.String()
-	return styleBorder.Width(s.width - 2).Height(s.height - 2).Render(content)
+	border := styleBorder
+	if !s.focused {
+		border = styleBorderDim
+	}
+	return border.Width(s.width - 2).Height(s.height - 2).Render(content)
 }
 
 // glyphForState returns the glyph character and its lipgloss style for the given state.

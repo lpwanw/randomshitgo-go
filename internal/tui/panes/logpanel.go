@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -44,6 +45,7 @@ const (
 var (
 	styleScrollRail  = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
 	styleScrollThumb = lipgloss.NewStyle().Foreground(lipgloss.Color("62"))
+	styleGutter      = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 )
 
 // Highlight SGR codes. Two styles:
@@ -78,15 +80,20 @@ type LogPanel struct {
 	lastGen    int64 // generation of last full render
 	matchLines []int // indices into rawLines that match the current filter
 	matchCur   int   // current index into matchLines (-1 when none)
+	gutterOn   bool    // render line-number gutter in Normal mode
+	inCopy     bool    // copy mode active — forces gutter on
+	cur        cursor  // copy-mode cursor position
+	pendingG   bool    // `g` leader armed (waiting for second `g` = top)
+	sel        selection
+	clip       clipboardWriter
 }
 
 // NewLogPanel initialises a LogPanel with sticky-bottom on. The viewport is
 // sized so the rightmost inner column is reserved for the scroll indicator
 // rendered in View (width-2 for border, -1 more for the scrollbar column).
 func NewLogPanel(width, height int) LogPanel {
-	innerW := max(1, width-3)
 	innerH := max(1, height-2)
-	vp := viewport.New(innerW, innerH)
+	vp := viewport.New(max(1, width-3), innerH)
 	vp.MouseWheelEnabled = true
 	return LogPanel{
 		vp:       vp,
@@ -97,20 +104,86 @@ func NewLogPanel(width, height int) LogPanel {
 	}
 }
 
-// SetSize resizes the viewport. The scrollbar reserves one inner column, so
-// the viewport's usable width is `width-3` (2 border cells + 1 scrollbar cell).
+// SetSize resizes the viewport. The scrollbar reserves one inner column and
+// the optional line-number gutter reserves `gutterWidth()` more, so the
+// viewport's usable width is `width - 3 - gutterWidth()`.
 func (lp *LogPanel) SetSize(width, height int) {
 	lp.width = width
 	lp.height = height
-	lp.vp.Width = max(1, width-3)
+	lp.vp.Width = max(1, width-3-lp.gutterWidth())
 	lp.vp.Height = max(1, height-2)
 	lp.dirty = true
+}
+
+// SetGutter toggles the line-number gutter in Normal mode. Copy mode always
+// forces the gutter on regardless of this flag.
+func (lp *LogPanel) SetGutter(on bool) {
+	if lp.gutterOn == on {
+		return
+	}
+	lp.gutterOn = on
+	lp.vp.Width = max(1, lp.width-3-lp.gutterWidth())
+	lp.dirty = true
+	lp.renderContent()
+}
+
+// SetCopyMode flips copy-mode on/off. Disables sticky auto-scroll on enter so
+// the buffer doesn't jump out from under the cursor.
+func (lp *LogPanel) SetCopyMode(on bool) {
+	if lp.inCopy == on {
+		return
+	}
+	lp.inCopy = on
+	if on {
+		lp.sticky = false
+		// Start the cursor at the top of the currently visible window so users
+		// don't need to scroll to find it.
+		lp.cur = cursor{line: minInt(lp.vp.YOffset, maxInt(0, len(lp.rawLines)-1))}
+		lp.clampCol()
+	} else {
+		lp.pendingG = false
+		lp.sel = selection{}
+	}
+	lp.vp.Width = max(1, lp.width-3-lp.gutterWidth())
+	lp.dirty = true
+	lp.renderContent()
+}
+
+// InCopyMode reports whether the panel is currently in copy mode.
+func (lp *LogPanel) InCopyMode() bool { return lp.inCopy }
+
+// gutterWidth returns the column width reserved for the line-number gutter,
+// or 0 when the gutter is not active. Includes the trailing ` │ ` separator.
+func (lp *LogPanel) gutterWidth() int {
+	if !lp.gutterOn && !lp.inCopy {
+		return 0
+	}
+	return lineNumberWidth(len(lp.rawLines)) + 3
+}
+
+// lineNumberWidth returns the minimum decimal width needed to render the
+// largest line index (1-based). Clamped to 1 so empty buffers still format.
+func lineNumberWidth(total int) int {
+	if total < 1 {
+		return 1
+	}
+	w := 0
+	for n := total; n > 0; n /= 10 {
+		w++
+	}
+	return w
 }
 
 // SetLines replaces all displayed lines (called on log tick with ring snapshot).
 // Lines should already have log.DecodeForRender applied.
 func (lp *LogPanel) SetLines(lines []string) {
+	prevGutter := lp.gutterWidth()
 	lp.rawLines = lines
+	// If gutter width shifts with buffer size (e.g. crossing 10 → 100 lines),
+	// reclaim / release the matching viewport columns before rendering.
+	if newGutter := lp.gutterWidth(); newGutter != prevGutter {
+		lp.vp.Width = max(1, lp.width-3-newGutter)
+	}
 	lp.dirty = true
 	lp.renderContent()
 	if lp.sticky {
@@ -250,6 +323,32 @@ func (lp *LogPanel) MatchCursor() int {
 	return lp.matchCur + 1
 }
 
+// JumpNextMatchCursor behaves like JumpNextMatch but also parks the copy-mode
+// cursor on the matched line (col 0) when the panel has focus. Returns the
+// same (ok, wrapped) contract.
+func (lp *LogPanel) JumpNextMatchCursor() (ok, wrapped bool) {
+	ok, wrapped = lp.JumpNextMatch()
+	if ok && lp.inCopy && lp.matchCur >= 0 && lp.matchCur < len(lp.matchLines) {
+		lp.cur.line = lp.matchLines[lp.matchCur]
+		lp.cur.col = 0
+		lp.ensureCursorVisible()
+		lp.paintMatches()
+	}
+	return
+}
+
+// JumpPrevMatchCursor is the backwards twin of JumpNextMatchCursor.
+func (lp *LogPanel) JumpPrevMatchCursor() (ok, wrapped bool) {
+	ok, wrapped = lp.JumpPrevMatch()
+	if ok && lp.inCopy && lp.matchCur >= 0 && lp.matchCur < len(lp.matchLines) {
+		lp.cur.line = lp.matchLines[lp.matchCur]
+		lp.cur.col = 0
+		lp.ensureCursorVisible()
+		lp.paintMatches()
+	}
+	return
+}
+
 // JumpNextMatch scrolls the viewport to the next matching line. Returns
 // (ok, wrapped): ok=false when there are no matches; wrapped=true when the
 // cursor looped from the last match back to the first.
@@ -339,7 +438,73 @@ func (lp *LogPanel) paintMatches() {
 		}
 		out[i] = line
 	}
+	if lp.inCopy {
+		lp.overlaySelection(out)
+		out[lp.cur.line] = overlayCursor(out[lp.cur.line], lp.cur.col)
+	}
+	if gw := lp.gutterWidth(); gw > 0 {
+		numW := gw - 3
+		for i := range out {
+			out[i] = styleGutter.Render(fmt.Sprintf("%*d │ ", numW, i+1)) + out[i]
+		}
+	}
 	lp.vp.SetContent(strings.Join(out, "\n"))
+}
+
+// overlayCursor wraps one cell at the cursor's stripped column with
+// reverse-video SGR so the active position stands out. When the cursor sits
+// past the last character a synthetic space cell is appended so there's
+// always something to invert.
+func overlayCursor(rendered string, strippedCol int) string {
+	mapping := mapStrippedToRendered(rendered)
+	strippedLen := len(mapping) - 1
+	if strippedCol > strippedLen {
+		strippedCol = strippedLen
+	}
+	if strippedCol < 0 {
+		strippedCol = 0
+	}
+	// Past-EOL cursor → append a reverse-styled space so users can tell where
+	// `$` landed on blank / short lines.
+	if strippedCol == strippedLen {
+		return rendered + "\x1b[7m \x1b[27m"
+	}
+	start := mapping[strippedCol]
+	end := mapping[strippedCol+1]
+	return rendered[:start] + "\x1b[7m" + rendered[start:end] + "\x1b[27m" + rendered[end:]
+}
+
+// mapStrippedToRendered returns a slice M where M[i] is the byte offset in
+// `rendered` corresponding to stripped-byte index i. M has length
+// len(strip)+1 so M[len(strip)] == len(rendered). ANSI SGR sequences are
+// skipped; the mapping lands on the visible byte they precede.
+func mapStrippedToRendered(rendered string) []int {
+	stripped := log.StripANSI(rendered)
+	out := make([]int, len(stripped)+1)
+	si := 0
+	ri := 0
+	for ri < len(rendered) {
+		loc := ansiSeqRe.FindStringIndex(rendered[ri:])
+		if loc != nil && loc[0] == 0 {
+			ri += loc[1]
+			continue
+		}
+		out[si] = ri
+		si++
+		ri++
+	}
+	out[si] = len(rendered)
+	if si != len(stripped) {
+		// Mapping drift — fall back to identity to avoid index panics.
+		for i := range out {
+			if i < len(rendered) {
+				out[i] = i
+			} else {
+				out[i] = len(rendered)
+			}
+		}
+	}
+	return out
 }
 
 // scrollToMatch positions the viewport so the current match line is visible

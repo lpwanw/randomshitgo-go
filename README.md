@@ -124,10 +124,41 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `PgDn` / `Ctrl-F` | Scroll log down |
 | `g` | Scroll to top |
 | `G` | Scroll to bottom |
+| `Tab` | Enter **log focus** — hand the keyboard to the log pane for vim-style nav + yank (double-Esc to return) |
+| `:set nu` / `:set nonu` | Toggle line-number gutter in the log panel |
 | `?` | Toggle help overlay |
 | `:` | Open command bar (`:q` to quit) |
 | `Ctrl-C` | Quit — press twice within 2 s to confirm |
 | `Esc` | Cancel / close overlay |
+
+### Log focus (vim motions + copy)
+
+Press `Tab` to hand the keyboard to the log pane. The sidebar dims, a
+cursor appears, line numbers show, and all process-control keys become
+inert — only vim motions and yank commands are active. Focus persists
+across multiple yanks; to return to process-switching press **`Esc`
+twice** within 2 seconds (mirrors the double-Ctrl-C quit pattern).
+
+| Key | Action (inside log focus) |
+|-----|---------------------------|
+| `h` / `j` / `k` / `l` | Move cursor (also arrow keys) |
+| `w` / `b` | Next / prev word |
+| `0` / `$` | Line start / end |
+| `gg` / `G` | Buffer top / bottom |
+| `Ctrl-u` / `Ctrl-d` | Half-page up / down |
+| `Ctrl-b` / `Ctrl-f` | Full-page up / down |
+| `H` / `M` / `L` | Viewport top / middle / bottom |
+| `/` | Open filter bar (same as Normal) |
+| `n` / `N` | Jump cursor to next / prev filter match |
+| `v` / `V` | Start char-wise / line-wise selection |
+| `y` | Yank selection (or current line) to system clipboard, **stay in focus** |
+| `Y` | Yank current line, stay in focus |
+| `Esc` (1st) | Cancel selection if any, else arm exit |
+| `Esc` (2nd, within 2s) | Return to sidebar / process-switching |
+
+The status label flips `NORMAL` → `LOG` → `COPY` as focus and selection
+change. The line-number gutter is always shown while log focus is active;
+outside focus, toggle it via `:set nu` / `:set nonu` from the command bar.
 
 ## Attach Mode
 

@@ -81,6 +81,8 @@ func routeKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = ModeNormal
 		}
 		return m, nil
+	case ModeLogFocus:
+		return routeLogFocus(m, msg)
 	}
 	return m, nil
 }
@@ -161,6 +163,11 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		key.Matches(msg, m.keys.Bottom):
 		cmd := m.logPanel.Update(msg)
 		return m, cmd
+
+	case key.Matches(msg, m.keys.CopyEnter):
+		m.mode = ModeLogFocus
+		m.logPanel.SetCopyMode(true)
+		return m, nil
 	}
 
 	// Quick-jump digits (1..9) — handled after the main switch so the explicit
@@ -220,6 +227,51 @@ func routeFilter(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !m.overlays.Filter.Visible() {
 		m.mode = ModeNormal
 	}
+	return m, cmd
+}
+
+// routeLogFocus handles keys while the log panel owns the keyboard. Vim
+// motions, visual select, and yank all happen here. Exit back to sidebar /
+// process-switching requires a **double-Esc** within quitArmWindow —
+// mirrors the double-Ctrl+C quit pattern. Any non-Esc key disarms.
+//
+// First-Esc semantics:
+//   - If a selection is active → clear it, stay focused, do NOT arm.
+//   - Else → arm + warn toast "Press Esc again to exit log focus".
+//
+// Second Esc inside the window returns to ModeNormal.
+func routeLogFocus(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if key.Matches(msg, m.keys.Esc) {
+		if m.logPanel.HasSelection() {
+			m.logPanel.ClearSelection()
+			m.logEscArmedAt = time.Time{}
+			return m, nil
+		}
+		if !m.logEscArmedAt.IsZero() && time.Since(m.logEscArmedAt) <= quitArmWindow {
+			m.mode = ModeNormal
+			m.logPanel.SetCopyMode(false)
+			m.logEscArmedAt = time.Time{}
+			return m, nil
+		}
+		m.logEscArmedAt = time.Now()
+		m.overlays.Toasts.AddWithTTL("Press Esc again to exit log focus", overlays.ToastWarn, quitArmWindow)
+		return m, nil
+	}
+
+	// Filter-match jumps stay wired so `/ n N` works inside log focus too.
+	if key.Matches(msg, m.keys.NextMatch) {
+		m.logEscArmedAt = time.Time{}
+		return handleJumpMatch(m, true)
+	}
+	if key.Matches(msg, m.keys.PrevMatch) {
+		m.logEscArmedAt = time.Time{}
+		return handleJumpMatch(m, false)
+	}
+
+	// Any other key disarms before routing so a motion never leaves the user
+	// one tap away from exiting.
+	m.logEscArmedAt = time.Time{}
+	cmd := m.logPanel.HandleCopyKey(msg)
 	return m, cmd
 }
 

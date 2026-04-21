@@ -55,6 +55,10 @@ type Model struct {
 	// quit. Zero value = disarmed. A second Ctrl+C within quitArmWindow
 	// triggers graceful quit; any other routed key resets it.
 	quitArmedAt time.Time
+	// logEscArmedAt is the timestamp of the most recent Esc inside
+	// ModeLogFocus that did NOT exit. A second Esc within quitArmWindow
+	// returns to ModeNormal; any other key disarms.
+	logEscArmedAt time.Time
 }
 
 // gitInfoCache stores git info for a project.
@@ -90,6 +94,17 @@ func New(cfg *config.Config, mgr *process.Manager, runtime *state.RuntimeStore, 
 
 // SetProgram stores the *tea.Program reference so attach mode can release the terminal.
 func (m *Model) SetProgram(p *tea.Program) { m.prog = p }
+
+// displayMode returns the status-bar mode label. While in log focus, the
+// label flips from "LOG" to "COPY" whenever a visual selection is active so
+// the user can tell at a glance whether a yank would grab the current line
+// or the highlighted range.
+func (m Model) displayMode() string {
+	if m.mode == ModeLogFocus && m.logPanel.HasSelection() {
+		return "COPY"
+	}
+	return m.mode.String()
+}
 
 // Init is called by Bubble Tea to get the initial Cmd.
 func (m Model) Init() tea.Cmd {
@@ -133,9 +148,10 @@ func (m Model) View() string {
 	}
 
 	m.sidebar.SetSize(sidebarW, contentH)
+	m.sidebar.SetFocused(m.mode != ModeLogFocus)
 	m.logPanel.SetSize(logW, contentH)
 	m.statusBar.Width = m.width
-	m.statusBar.Mode = m.mode.String()
+	m.statusBar.Mode = m.displayMode()
 
 	uiSnap := m.ui.Snapshot()
 	m.statusBar.Selected = uiSnap.SelectedID
@@ -144,6 +160,13 @@ func (m Model) View() string {
 	m.statusBar.FilterText = uiSnap.FilterText
 	m.statusBar.FilterTotal = m.logPanel.MatchCount()
 	m.statusBar.FilterIndex = m.logPanel.MatchCursor()
+
+	if m.mode == ModeLogFocus {
+		cl, cc := m.logPanel.Cursor()
+		m.statusBar.CopyCursor = fmt.Sprintf("L%d:%d", cl+1, cc+1)
+	} else {
+		m.statusBar.CopyCursor = ""
+	}
 
 	// Populate live status-bar segments from cached git+port info.
 	if sel := uiSnap.SelectedID; sel != "" {

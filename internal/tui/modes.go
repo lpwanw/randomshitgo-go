@@ -19,6 +19,9 @@ const (
 	ModeHelp
 	// ModeCommand is active when the vim-style `:` command bar is open.
 	ModeCommand
+	// ModeLogFocus is active when the log panel is in vim-style copy mode —
+	// cursor navigation, visual selection, clipboard yank.
+	ModeLogFocus
 )
 
 // String returns a short human-readable label for the mode.
@@ -38,6 +41,8 @@ func (m Mode) String() string {
 		return "HELP"
 	case ModeCommand:
 		return "COMMAND"
+	case ModeLogFocus:
+		return "LOG"
 	default:
 		return "UNKNOWN"
 	}

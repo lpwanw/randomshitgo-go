@@ -11,6 +11,7 @@ import (
 	"github.com/lpwanw/randomshitgo-go/internal/netinfo"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
+	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
 )
 
 // handleMsg is the central message dispatcher for the root Model.
@@ -107,6 +108,24 @@ func handleMsg(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case AttachEndedMsg:
 		m.mode = ModeNormal
+		return m, nil
+
+	case panes.CopiedMsg:
+		// Stay in log focus after a yank — user keeps browsing / yanking. Only
+		// double-Esc returns control to the sidebar.
+		m.logPanel.ClearSelection()
+		unit := "lines"
+		if msg.Lines == 1 {
+			unit = "line"
+		}
+		m.overlays.Toasts.Add(
+			fmt.Sprintf("copied %d %s (%d chars)", msg.Lines, unit, msg.Chars),
+			overlays.ToastInfo,
+		)
+		return m, nil
+
+	case panes.CopyFailedMsg:
+		m.overlays.Toasts.Add("copy failed: "+msg.Err, overlays.ToastErr)
 		return m, nil
 
 	case stateRefreshMsg:
@@ -313,9 +332,14 @@ func handleJumpMatch(m Model, forward bool) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	var ok, wrapped bool
-	if forward {
+	switch {
+	case m.mode == ModeLogFocus && forward:
+		ok, wrapped = m.logPanel.JumpNextMatchCursor()
+	case m.mode == ModeLogFocus:
+		ok, wrapped = m.logPanel.JumpPrevMatchCursor()
+	case forward:
 		ok, wrapped = m.logPanel.JumpNextMatch()
-	} else {
+	default:
 		ok, wrapped = m.logPanel.JumpPrevMatch()
 	}
 	if !ok {
@@ -358,12 +382,18 @@ type branchesLoadedMsg struct {
 // dispatchCommand runs a parsed `:` command. Unknown commands produce a
 // non-destructive error toast so typos don't kill processes.
 func dispatchCommand(m Model, text string) (tea.Model, tea.Cmd) {
-	name := strings.TrimSpace(text)
+	name := strings.Join(strings.Fields(text), " ")
 	switch name {
 	case "":
 		return m, nil
 	case "q", "quit":
 		return m, gracefulQuit(m)
+	case "set nu", "set number":
+		m.logPanel.SetGutter(true)
+		return m, nil
+	case "set nonu", "set nonumber":
+		m.logPanel.SetGutter(false)
+		return m, nil
 	default:
 		m.overlays.Toasts.Add("unknown command: "+name, overlays.ToastErr)
 		return m, nil

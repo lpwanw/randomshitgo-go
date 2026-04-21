@@ -40,8 +40,9 @@ type StatusBar struct {
 	GitBehind  int
 	GitDirty   bool
 	FilterText  string
-	FilterIndex int // 1-based position of the current jump target; 0 = none
-	FilterTotal int // total number of filter matches
+	FilterIndex int    // 1-based position of the current jump target; 0 = none
+	FilterTotal int    // total number of filter matches
+	CopyCursor  string // copy-mode cursor label, e.g. "L12:3"; empty hides
 	Width       int
 }
 
@@ -124,6 +125,9 @@ func (sb *StatusBar) View() string {
 	}
 	if filterSeg != "" {
 		parts = append(parts, filterSeg)
+	}
+	if sb.CopyCursor != "" {
+		parts = append(parts, sep+styleBarDim.Render(sb.CopyCursor))
 	}
 
 	bar := strings.Join(parts, "")
