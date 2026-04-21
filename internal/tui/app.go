@@ -9,6 +9,7 @@ import (
 	"github.com/lpwanw/randomshitgo-go/internal/config"
 	"github.com/lpwanw/randomshitgo-go/internal/log"
 	"github.com/lpwanw/randomshitgo-go/internal/process"
+	"github.com/lpwanw/randomshitgo-go/internal/procstats"
 	"github.com/lpwanw/randomshitgo-go/internal/state"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
@@ -48,8 +49,11 @@ type Model struct {
 	lastLogGen      int64
 
 	// status-bar live data (keyed by project ID, refreshed on 2s tick)
-	lastGitInfo map[string]gitInfoCache
-	lastPort    map[string]int
+	lastGitInfo    map[string]gitInfoCache
+	lastPort       map[string]int
+	lastProcStats  map[string]procstats.Stats
+	lastRuntimePID map[string]int // per-project last-seen PID; detects restart so stats cache can be invalidated
+	stats          *procstats.Sampler
 
 	// quitArmedAt is the timestamp of the most recent Ctrl+C that did NOT
 	// quit. Zero value = disarmed. A second Ctrl+C within quitArmWindow
@@ -87,8 +91,11 @@ func New(cfg *config.Config, mgr *process.Manager, runtime *state.RuntimeStore, 
 		mode:        ModeNormal,
 		logPanel:    panes.NewLogPanel(80, 24),
 		overlays:    overlays.NewSet(groups, nil),
-		lastGitInfo: make(map[string]gitInfoCache),
-		lastPort:    make(map[string]int),
+		lastGitInfo:    make(map[string]gitInfoCache),
+		lastPort:       make(map[string]int),
+		lastProcStats:  make(map[string]procstats.Stats),
+		lastRuntimePID: make(map[string]int),
+		stats:          procstats.New(),
 	}
 }
 
@@ -192,6 +199,15 @@ func (m Model) View() string {
 				break
 			}
 		}
+		if st, ok := m.lastProcStats[sel]; ok {
+			m.statusBar.CPU = st.CPU
+			m.statusBar.RSS = st.RSS
+			m.statusBar.HasStats = true
+		} else {
+			m.statusBar.HasStats = false
+		}
+	} else {
+		m.statusBar.HasStats = false
 	}
 
 	main := lipgloss.JoinHorizontal(lipgloss.Top,

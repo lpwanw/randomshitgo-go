@@ -45,6 +45,9 @@ type StatusBar struct {
 	CopyCursor  string // copy-mode cursor label, e.g. "L12:3"; empty hides
 	CmdBuffer   string // pending vim-command buffer (e.g. "3yi"); empty hides
 	Paused      bool   // Space-pause active in log focus
+	HasStats    bool   // true = render CPU / RSS segment
+	CPU         float64
+	RSS         uint64
 	Width       int
 }
 
@@ -77,6 +80,12 @@ func (sb *StatusBar) View() string {
 	portSeg := ""
 	if sb.Port > 0 {
 		portSeg = sep + styleBarDim.Render(fmt.Sprintf(":%d", sb.Port))
+	}
+
+	// stats segment
+	statsSeg := ""
+	if sb.HasStats {
+		statsSeg = sep + styleBarDim.Render(fmt.Sprintf("cpu:%.1f%% mem:%s", sb.CPU, formatRSS(sb.RSS)))
 	}
 
 	// git segment
@@ -122,6 +131,9 @@ func (sb *StatusBar) View() string {
 	if portSeg != "" {
 		parts = append(parts, portSeg)
 	}
+	if statsSeg != "" {
+		parts = append(parts, statsSeg)
+	}
 	if gitSeg != "" {
 		parts = append(parts, gitSeg)
 	}
@@ -142,6 +154,21 @@ func (sb *StatusBar) View() string {
 	// Pad / clip to Width.
 	bar = styleBar.Width(sb.Width).Render(bar)
 	return bar
+}
+
+// formatRSS turns bytes into a compact human-readable string — integer
+// suffix for KiB / MiB, one decimal for GiB (matches `htop` convention).
+func formatRSS(n uint64) string {
+	switch {
+	case n >= 1<<30:
+		return fmt.Sprintf("%.1fG", float64(n)/float64(1<<30))
+	case n >= 1<<20:
+		return fmt.Sprintf("%dM", n>>20)
+	case n >= 1<<10:
+		return fmt.Sprintf("%dK", n>>10)
+	default:
+		return fmt.Sprintf("%dB", n)
+	}
 }
 
 // position returns the 1-based position of the cursor, clamped to [1, Total].

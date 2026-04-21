@@ -582,6 +582,51 @@ func TestStatusBar_View_FilterNoMatch(t *testing.T) {
 	}
 }
 
+func TestStatusBar_FormatRSS(t *testing.T) {
+	cases := map[uint64]string{
+		512:                "512B",
+		1 << 10:            "1K",
+		2 << 10:            "2K",
+		1 << 20:            "1M",
+		128 << 20:          "128M",
+		1 << 30:            "1.0G",
+		uint64(1.5 * (1 << 30)): "1.5G",
+	}
+	for in, want := range cases {
+		if got := formatRSS(in); got != want {
+			t.Errorf("formatRSS(%d): want %q, got %q", in, want, got)
+		}
+	}
+}
+
+func TestStatusBar_View_StatsSegment(t *testing.T) {
+	sb := &StatusBar{
+		Mode:     "NORMAL",
+		Selected: "api",
+		Total:    1,
+		PID:      1234,
+		HasStats: true,
+		CPU:      42.3,
+		RSS:      128 << 20,
+		Width:    160,
+	}
+	view := sb.View()
+	if !strings.Contains(view, "cpu:42.3%") {
+		t.Errorf("expected cpu segment, got: %q", view)
+	}
+	if !strings.Contains(view, "mem:128M") {
+		t.Errorf("expected mem segment, got: %q", view)
+	}
+}
+
+func TestStatusBar_View_StatsHiddenWhenFlagOff(t *testing.T) {
+	sb := &StatusBar{Mode: "NORMAL", Width: 140}
+	view := sb.View()
+	if strings.Contains(view, "cpu:") || strings.Contains(view, "mem:") {
+		t.Errorf("stats segment must be hidden when HasStats=false: %q", view)
+	}
+}
+
 func TestStatusBar_View_CopyCursor(t *testing.T) {
 	sb := &StatusBar{
 		Mode:       "COPY",

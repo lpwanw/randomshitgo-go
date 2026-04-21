@@ -64,3 +64,14 @@ type PortInfoMsg struct {
 	ID   string
 	Port int
 }
+
+// ProcStatsMsg delivers the per-project CPU% + RSS snapshot. CPU is a
+// percentage that can exceed 100 on multi-core processes; RSS is in bytes.
+// OK=false when sampling failed (process just died, permissions, etc.) so
+// the UI can render an empty segment without surfacing a toast.
+type ProcStatsMsg struct {
+	ID  string
+	CPU float64
+	RSS uint64
+	OK  bool
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/lpwanw/randomshitgo-go/internal/gitinfo"
 	logpkg "github.com/lpwanw/randomshitgo-go/internal/log"
 	"github.com/lpwanw/randomshitgo-go/internal/netinfo"
+	"github.com/lpwanw/randomshitgo-go/internal/procstats"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
@@ -75,6 +76,14 @@ func handleMsg(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.lastPort = make(map[string]int)
 		}
 		m.lastPort[msg.ID] = msg.Port
+		return m, nil
+
+	case ProcStatsMsg:
+		if msg.OK {
+			m.lastProcStats[msg.ID] = procstats.Stats{CPU: msg.CPU, RSS: msg.RSS}
+		} else {
+			delete(m.lastProcStats, msg.ID)
+		}
 		return m, nil
 
 	case statusRefreshTickMsg:
@@ -295,6 +304,29 @@ func handleStatusRefresh(m Model) tea.Cmd {
 			}
 			return PortInfoMsg{ID: capturedID, Port: port}
 		})
+	}
+
+	// Proc-stats query. Invalidate the gopsutil handle cache if the PID
+	// changed since the last tick (child restarted) so the next CPU%
+	// baseline is fresh rather than spiking against the dead process.
+	if pid > 0 && m.stats != nil {
+		if prev, ok := m.lastRuntimePID[id]; ok && prev != pid {
+			m.stats.Forget(prev)
+			delete(m.lastProcStats, id)
+		}
+		m.lastRuntimePID[id] = pid
+		sampler := m.stats
+		capturedPID := pid
+		cmds = append(cmds, func() tea.Msg {
+			st, err := sampler.Sample(capturedPID)
+			if err != nil {
+				return ProcStatsMsg{ID: capturedID}
+			}
+			return ProcStatsMsg{ID: capturedID, CPU: st.CPU, RSS: st.RSS, OK: true}
+		})
+	} else if pid == 0 {
+		// Process not running — drop stale stats so the status bar clears.
+		delete(m.lastProcStats, id)
 	}
 
 	cmds = append(cmds, statusRefreshTick())

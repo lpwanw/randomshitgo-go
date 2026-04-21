@@ -15,6 +15,7 @@ so you can type directly into any child process.
 - Attach mode: raw PTY bridge with `Ctrl-] Ctrl-]` to detach
 - Git branch display per project
 - Active port/socket display (processes that LISTEN show their port)
+- Per-process CPU% and memory (RSS) in the status bar (whole-process-tree sum; updates every 2 s). CPU can exceed 100% on multi-core workloads — matches `htop` convention.
 - Goroutine-safe; race-detector clean
 
 ## Install
