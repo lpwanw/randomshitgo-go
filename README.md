@@ -13,7 +13,7 @@ so you can type directly into any child process.
 - Named groups — boot the whole stack with one key
 - Auto-restart on failure with configurable exponential backoff
 - Attach mode: raw PTY bridge with `Ctrl-] Ctrl-]` to detach
-- Git branch display per project
+- Git branch display per project + in-TUI branch picker with live filter, plus `:fetch` / `:pull --ff-only`
 - Active port/socket display (processes that LISTEN show their port)
 - Per-process CPU% and memory (RSS) in the status bar (whole-process-tree sum; updates every 2 s). CPU can exceed 100% on multi-core workloads — matches `htop` convention.
 - Goroutine-safe; race-detector clean
@@ -119,7 +119,9 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `X` | Stop all processes |
 | `a` | Attach to selected process (raw PTY) |
 | `S` | Open group picker → start group |
-| `b` | Open branch picker |
+| `c` / `b` | Open branch picker (type to filter; arrows to navigate; `Enter` checks out; `Esc` clears filter then closes) |
+| `f` | `git fetch --prune` for the selected project (async; toast on result) |
+| `p` | `git pull --ff-only` for the selected project — never merges |
 | `/` | Search logs (vim-style; matches highlighted inline) |
 | `n` / `N` | Jump to next / previous search match |
 | `1`–`9` | Quick-jump to project 1–9 in the sidebar |
@@ -133,8 +135,10 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `:set json` / `:set nojson` | Toggle pretty-print for single-line JSON log lines |
 | `:set sql` / `:set nosql` | Toggle keyword-aware SQL formatting (handles Rails/Sequel/GORM prefixes) |
 | `:set wrap` / `:set nowrap` | Toggle hard-wrap of long lines at viewport width. On by default |
-| `:clear` / `:c` | Empty the in-memory log buffer for the selected project (files on disk untouched) |
+| `:clear` / `:c` / `Ctrl-L` | Empty the in-memory log buffer for the selected project (files on disk untouched) |
 | `:w {path}` | Dump the currently visible log buffer to `{path}` (supports `~` / `$VAR`) |
+| `:fetch` | `git fetch --prune` the selected project (async; result toasted) |
+| `:pull` | `git pull --ff-only` the selected project — never merges; refuses diverged branches |
 | `?` | Toggle help overlay |
 | `:` | Open command bar (`:q` to quit) |
 | `Ctrl-C` | Quit — press twice within 2 s to confirm |

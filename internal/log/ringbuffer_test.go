@@ -83,6 +83,20 @@ func TestRingBufferClear(t *testing.T) {
 	}
 }
 
+func TestRingBufferClearBumpsGeneration(t *testing.T) {
+	// Regression: Clear must bump generation so subscribers re-render.
+	// Before the fix, the TUI log panel ignored Clear because the gen
+	// guard in refreshLogPanel saw no change.
+	r := NewRingBuffer[int](3)
+	r.Push(1)
+	before := r.Generation()
+	r.Clear()
+	after := r.Generation()
+	if after == before {
+		t.Fatalf("Clear() did not bump generation: before=%d after=%d", before, after)
+	}
+}
+
 func equalInts(a, b []int) bool {
 	if len(a) != len(b) {
 		return false

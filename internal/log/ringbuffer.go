@@ -105,4 +105,8 @@ func (r *RingBuffer[T]) Clear() {
 	}
 	r.head = 0
 	r.count = 0
+	// Bump generation so subscribers (e.g. the TUI log panel) know the
+	// buffer changed. Without this, Clear produces no visible effect until
+	// a later Push bumps gen.
+	r.gen++
 }

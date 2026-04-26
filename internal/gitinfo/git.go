@@ -94,8 +94,15 @@ func gitDirty(dir string) (bool, error) {
 }
 
 // runGit executes git with --no-optional-locks in dir with a 300ms timeout.
+// Use runGitWithTimeout for longer-running ops (fetch / pull).
 func runGit(dir string, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), gitTimeout)
+	return runGitWithTimeout(dir, gitTimeout, args...)
+}
+
+// runGitWithTimeout executes git with --no-optional-locks in dir, killing the
+// child after timeout. Stderr travels back inside gitExecError on non-zero exit.
+func runGitWithTimeout(dir string, timeout time.Duration, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	fullArgs := append([]string{"-C", dir, "--no-optional-locks"}, args...)

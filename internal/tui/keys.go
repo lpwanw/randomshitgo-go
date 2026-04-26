@@ -13,6 +13,8 @@ type KeyMap struct {
 	Attach        key.Binding
 	GroupPicker   key.Binding
 	BranchPicker  key.Binding
+	GitFetch      key.Binding
+	GitPull       key.Binding
 	StopAll       key.Binding
 	Filter        key.Binding
 	NextMatch     key.Binding
@@ -21,6 +23,7 @@ type KeyMap struct {
 	PageDown      key.Binding
 	Top           key.Binding
 	Bottom        key.Binding
+	ClearLog      key.Binding
 	Help          key.Binding
 	Command       key.Binding
 	Quit          key.Binding
@@ -71,8 +74,16 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("S", "start group"),
 		),
 		BranchPicker: key.NewBinding(
-			key.WithKeys("b"),
-			key.WithHelp("b", "branch picker"),
+			key.WithKeys("c", "b"),
+			key.WithHelp("c", "checkout branch"),
+		),
+		GitFetch: key.NewBinding(
+			key.WithKeys("f"),
+			key.WithHelp("f", "git fetch"),
+		),
+		GitPull: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "git pull --ff-only"),
 		),
 		StopAll: key.NewBinding(
 			key.WithKeys("X"),
@@ -105,6 +116,10 @@ func DefaultKeyMap() KeyMap {
 		Bottom: key.NewBinding(
 			key.WithKeys("G"),
 			key.WithHelp("G", "scroll bottom"),
+		),
+		ClearLog: key.NewBinding(
+			key.WithKeys("ctrl+l"),
+			key.WithHelp("ctrl+l", "clear log buffer"),
 		),
 		Help: key.NewBinding(
 			key.WithKeys("?"),
@@ -170,8 +185,8 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.QuickJump},
 		{k.Start, k.Restart, k.Stop, k.Attach},
-		{k.GroupPicker, k.BranchPicker, k.StopAll},
-		{k.Filter, k.NextMatch, k.PrevMatch, k.PageUp, k.PageDown, k.Top, k.Bottom},
+		{k.GroupPicker, k.BranchPicker, k.GitFetch, k.GitPull, k.StopAll},
+		{k.Filter, k.NextMatch, k.PrevMatch, k.PageUp, k.PageDown, k.Top, k.Bottom, k.ClearLog},
 		{k.CopyEnter, k.CopyMotion, k.CopyVisual, k.CopyYank},
 		{k.Help, k.Command, k.Quit, k.Esc},
 	}

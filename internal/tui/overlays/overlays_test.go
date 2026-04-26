@@ -111,6 +111,202 @@ func TestGroupPicker_Esc_Hides(t *testing.T) {
 	}
 }
 
+// ---- BranchPicker tests ----
+
+func TestBranchPicker_Filter_NarrowsList(t *testing.T) {
+	bp := NewBranchPicker([]string{"main", "dev", "feature/login", "feature/signup"})
+	bp.Show()
+
+	// Type 'f' — filter to two feature branches.
+	bp2, _ := bp.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	if bp2.filter != "f" {
+		t.Errorf("filter after 'f': want %q, got %q", "f", bp2.filter)
+	}
+	if len(bp2.filtered) != 2 {
+		t.Errorf("filtered len after 'f': want 2, got %d", len(bp2.filtered))
+	}
+
+	// Type 'eature/l' — narrow to one.
+	bp3 := bp2
+	for _, r := range "eature/l" {
+		bp3, _ = bp3.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	if len(bp3.filtered) != 1 {
+		t.Errorf("filtered len after 'feature/l': want 1, got %d", len(bp3.filtered))
+	}
+	if got := bp3.branches[bp3.filtered[0]]; got != "feature/login" {
+		t.Errorf("match: want feature/login, got %q", got)
+	}
+}
+
+func TestBranchPicker_Filter_CaseInsensitive(t *testing.T) {
+	bp := NewBranchPicker([]string{"Main", "DevBranch"})
+	bp.Show()
+
+	bp2, _ := bp.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	if len(bp2.filtered) != 1 {
+		t.Fatalf("case-insensitive match: want 1 match, got %d", len(bp2.filtered))
+	}
+	if bp2.branches[bp2.filtered[0]] != "DevBranch" {
+		t.Errorf("match: want DevBranch, got %q", bp2.branches[bp2.filtered[0]])
+	}
+}
+
+func TestBranchPicker_Backspace_PopsFilter(t *testing.T) {
+	bp := NewBranchPicker([]string{"main", "dev"})
+	bp.Show()
+
+	for _, r := range "de" {
+		bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	if bp.filter != "de" {
+		t.Fatalf("setup filter: want 'de', got %q", bp.filter)
+	}
+
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if bp.filter != "d" {
+		t.Errorf("after backspace: want 'd', got %q", bp.filter)
+	}
+
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if bp.filter != "" {
+		t.Errorf("after backspace to empty: want \"\", got %q", bp.filter)
+	}
+
+	// Backspace on empty filter is a no-op (no panic).
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if bp.filter != "" {
+		t.Errorf("backspace on empty: want \"\", got %q", bp.filter)
+	}
+}
+
+func TestBranchPicker_Esc_ClearsFilterThenHides(t *testing.T) {
+	bp := NewBranchPicker([]string{"main", "dev"})
+	bp.Show()
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	if bp.filter == "" {
+		t.Fatal("setup: expected non-empty filter")
+	}
+
+	// First Esc clears filter, stays visible.
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if bp.filter != "" {
+		t.Errorf("first Esc: want filter cleared, got %q", bp.filter)
+	}
+	if !bp.Visible() {
+		t.Error("first Esc with filter: picker should stay visible")
+	}
+
+	// Second Esc closes.
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if bp.Visible() {
+		t.Error("second Esc: picker should hide")
+	}
+}
+
+func TestBranchPicker_Enter_UsesFilteredIndex(t *testing.T) {
+	bp := NewBranchPicker([]string{"main", "dev", "feature/login"})
+	bp.Show()
+
+	// Type 'login' — filtered to ["feature/login"], cursor at 0.
+	for _, r := range "login" {
+		bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+
+	_, cmd := bp.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter should emit a Cmd")
+	}
+	msg := cmd()
+	cb, ok := msg.(CheckoutBranchMsg)
+	if !ok {
+		t.Fatalf("expected CheckoutBranchMsg, got %T", msg)
+	}
+	if cb.Branch != "feature/login" {
+		t.Errorf("checkout branch: want feature/login, got %q", cb.Branch)
+	}
+}
+
+func TestBranchPicker_Enter_NoMatches_IsNoop(t *testing.T) {
+	bp := NewBranchPicker([]string{"main", "dev"})
+	bp.Show()
+
+	// Type 'zzz' — no matches.
+	for _, r := range "zzz" {
+		bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	if len(bp.filtered) != 0 {
+		t.Fatalf("setup: want 0 matches, got %d", len(bp.filtered))
+	}
+
+	bp2, cmd := bp.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Error("Enter on empty filter should not emit a Cmd")
+	}
+	if !bp2.Visible() {
+		t.Error("Enter on empty filter: picker should stay visible")
+	}
+}
+
+func TestBranchPicker_ArrowNav_RespectFilteredBounds(t *testing.T) {
+	bp := NewBranchPicker([]string{"main", "dev", "feature/login"})
+	bp.Show()
+
+	// Filter to "feature/login" only (single match).
+	for _, r := range "login" {
+		bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	if len(bp.filtered) != 1 {
+		t.Fatalf("setup: want 1 match, got %d", len(bp.filtered))
+	}
+
+	// KeyDown must not overflow past the single element.
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if bp.cursor != 0 {
+		t.Errorf("KeyDown on 1-match list: want cursor 0, got %d", bp.cursor)
+	}
+	// KeyUp at top stays at 0.
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if bp.cursor != 0 {
+		t.Errorf("KeyUp at top: want cursor 0, got %d", bp.cursor)
+	}
+}
+
+func TestBranchPicker_LettersAreFilter_NotNav(t *testing.T) {
+	// Regression: 'j'/'k' used to hit pickerUp/Down — that made branches
+	// containing those letters unreachable via filter.
+	bp := NewBranchPicker([]string{"main", "jumbo"})
+	bp.Show()
+
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if bp.filter != "j" {
+		t.Errorf("after 'j' key: want filter 'j', got %q", bp.filter)
+	}
+	if len(bp.filtered) != 1 || bp.branches[bp.filtered[0]] != "jumbo" {
+		t.Errorf("after 'j' key: want only 'jumbo' filtered, got %v", bp.filtered)
+	}
+}
+
+func TestBranchPicker_SetBranches_ResetsFilterAndCursor(t *testing.T) {
+	bp := NewBranchPicker([]string{"main"})
+	bp.Show()
+	bp, _ = bp.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	if bp.filter != "x" {
+		t.Fatal("setup: expected filter x")
+	}
+
+	bp.SetBranches([]string{"a", "b", "c"})
+	if bp.filter != "" {
+		t.Errorf("SetBranches: filter should reset, got %q", bp.filter)
+	}
+	if bp.cursor != 0 {
+		t.Errorf("SetBranches: cursor should reset, got %d", bp.cursor)
+	}
+	if len(bp.filtered) != 3 {
+		t.Errorf("SetBranches: filtered len should be 3, got %d", len(bp.filtered))
+	}
+}
+
 // ---- FilterInput tests ----
 
 func TestFilterInput_EnterWithValidRegex_EmitsCommitMsg(t *testing.T) {

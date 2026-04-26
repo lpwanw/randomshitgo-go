@@ -116,6 +116,14 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.BranchPicker):
 		return handleBranchPickerOpen(m)
 
+	case key.Matches(msg, m.keys.GitFetch):
+		model, cmd := handleGitFetch(m)
+		return model, cmd
+
+	case key.Matches(msg, m.keys.GitPull):
+		model, cmd := handleGitPull(m)
+		return model, cmd
+
 	case key.Matches(msg, m.keys.NextMatch):
 		return handleJumpMatch(m, true)
 
@@ -152,6 +160,9 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if id := m.sidebar.Selected(); id != "" {
 			return m, func() tea.Msg { return AttachRequestMsg{ID: id} }
 		}
+
+	case key.Matches(msg, m.keys.ClearLog):
+		return handleClearBuffer(m)
 
 	case key.Matches(msg, m.keys.StopAll):
 		grace := time.Duration(m.cfg.Settings.ShutdownGraceMs) * time.Millisecond
@@ -205,13 +216,10 @@ func routeGroupPicker(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// routeBranchPicker delegates to the branch picker overlay.
+// routeBranchPicker delegates to the branch picker overlay. The overlay owns
+// Esc so "first Esc clears filter, second Esc closes" works — intercepting it
+// here would always collapse the picker on the first press.
 func routeBranchPicker(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if key.Matches(msg, m.keys.Esc) {
-		m.mode = ModeNormal
-		m.overlays.Branch.Hide()
-		return m, nil
-	}
 	updated, cmd := m.overlays.Branch.Update(msg)
 	m.overlays.Branch = updated
 	if !m.overlays.Branch.Visible() {

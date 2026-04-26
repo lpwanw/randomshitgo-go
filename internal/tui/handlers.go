@@ -455,6 +455,10 @@ func dispatchCommand(m Model, text string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "clear", "c":
 		return handleClearBuffer(m)
+	case "fetch":
+		return handleGitFetch(m)
+	case "pull":
+		return handleGitPull(m)
 	}
 
 	// Commands with arguments — split on first space.
@@ -512,6 +516,72 @@ func handleWriteBuffer(m Model, rawPath string) (tea.Model, tea.Cmd) {
 	}
 	m.overlays.Toasts.Add(fmt.Sprintf("wrote %d lines → %s", len(stripped), expanded), overlays.ToastInfo)
 	return m, nil
+}
+
+// handleGitFetch runs `git fetch --prune` against the selected project's
+// repo asynchronously and surfaces the result as a toast.
+func handleGitFetch(m Model) (tea.Model, tea.Cmd) {
+	id := m.sidebar.Selected()
+	if id == "" {
+		m.overlays.Toasts.Add("fetch: no project selected", overlays.ToastErr)
+		return m, nil
+	}
+	proj, ok := m.cfg.Projects[id]
+	if !ok {
+		m.overlays.Toasts.Add(fmt.Sprintf("fetch: unknown project %q", id), overlays.ToastErr)
+		return m, nil
+	}
+	dir := proj.Path
+	return m, func() tea.Msg {
+		out, err := gitinfo.Fetch(dir)
+		if err != nil {
+			return ShowToastMsg{Text: "fetch: " + firstLine(err.Error()), Level: overlays.ToastErr}
+		}
+		text := firstLine(out)
+		if text == "" {
+			text = "fetched"
+		}
+		return ShowToastMsg{Text: text, Level: overlays.ToastInfo}
+	}
+}
+
+// handleGitPull runs `git pull --ff-only` against the selected project's
+// repo asynchronously and surfaces the result as a toast. Never merges.
+func handleGitPull(m Model) (tea.Model, tea.Cmd) {
+	id := m.sidebar.Selected()
+	if id == "" {
+		m.overlays.Toasts.Add("pull: no project selected", overlays.ToastErr)
+		return m, nil
+	}
+	proj, ok := m.cfg.Projects[id]
+	if !ok {
+		m.overlays.Toasts.Add(fmt.Sprintf("pull: unknown project %q", id), overlays.ToastErr)
+		return m, nil
+	}
+	dir := proj.Path
+	return m, func() tea.Msg {
+		out, err := gitinfo.Pull(dir)
+		if err != nil {
+			return ShowToastMsg{Text: "pull: " + firstLine(err.Error()), Level: overlays.ToastErr}
+		}
+		text := firstLine(out)
+		if text == "" {
+			text = "pulled"
+		}
+		return ShowToastMsg{Text: text, Level: overlays.ToastInfo}
+	}
+}
+
+// firstLine returns the first non-empty line of s, trimmed. Used to keep
+// toasts terse when git stdout/stderr carries a multi-line report.
+func firstLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			return line
+		}
+	}
+	return ""
 }
 
 // gracefulQuit stops all processes then emits QuitMsg.
