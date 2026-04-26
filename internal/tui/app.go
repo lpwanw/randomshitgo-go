@@ -11,6 +11,7 @@ import (
 	"github.com/lpwanw/randomshitgo-go/internal/process"
 	"github.com/lpwanw/randomshitgo-go/internal/procstats"
 	"github.com/lpwanw/randomshitgo-go/internal/state"
+	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
 )
@@ -63,6 +64,11 @@ type Model struct {
 	// ModeLogFocus that did NOT exit. A second Esc within quitArmWindow
 	// returns to ModeNormal; any other key disarms.
 	logEscArmedAt time.Time
+
+	// attach is the active embedded-attach session, or nil. While set,
+	// View() swaps the log panel for the vt grid and routing forwards
+	// keystrokes into the PTY.
+	attach *attach.Session
 }
 
 // gitInfoCache stores git info for a project.
@@ -210,9 +216,13 @@ func (m Model) View() string {
 		m.statusBar.HasStats = false
 	}
 
+	rightPane := m.logPanel.View()
+	if m.mode == ModeEmbeddedAttach && m.attach != nil {
+		rightPane = attach.Render(m.attach.Term(), logW, contentH)
+	}
 	main := lipgloss.JoinHorizontal(lipgloss.Top,
 		m.sidebar.View(),
-		m.logPanel.View(),
+		rightPane,
 	)
 	var base string
 	switch {

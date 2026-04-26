@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lpwanw/randomshitgo-go/internal/process"
+	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
 )
 
@@ -52,9 +53,11 @@ func stopAllCmd(mgr *process.Manager, grace time.Duration) tea.Cmd {
 
 // routeKey dispatches key events to the mode-specific handler.
 func routeKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Ctrl+C arms the quit state on first press and fires gracefulQuit only
-	// on the second press within quitArmWindow — see handleCtrlC.
-	if msg.String() == "ctrl+c" {
+	// In embedded-attach mode Ctrl+C must reach the child program (so
+	// `^C` interrupts e.g. a running rails console) instead of arming
+	// our double-tap-to-quit. The detach handshake (Ctrl-] Ctrl-]) is
+	// the only way out.
+	if msg.String() == "ctrl+c" && m.mode != ModeEmbeddedAttach {
 		return handleCtrlC(m)
 	}
 	// Any non-Ctrl+C key disarms a previous Ctrl+C so an unrelated keystroke
@@ -81,8 +84,52 @@ func routeKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = ModeNormal
 		}
 		return m, nil
+	case ModeEmbeddedAttach:
+		return routeEmbeddedAttach(m, msg)
 	case ModeLogFocus:
 		return routeLogFocus(m, msg)
+	}
+	return m, nil
+}
+
+// routeEmbeddedAttach forwards every keystroke into the child PTY,
+// intercepting only the Ctrl-] Ctrl-] detach handshake. The detector is
+// fed first; if it consumes the key we're done. If it produces flush
+// bytes (the saved Ctrl-] from a non-handshake follow-up) those go out
+// to the PTY before the current key. PTY write errors trigger an
+// auto-detach via EmbeddedAttachEndedMsg.
+func routeEmbeddedAttach(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.attach == nil {
+		// Defensive — should never happen, but recover gracefully.
+		m.mode = ModeNormal
+		return m, nil
+	}
+	det := m.attach.Detector()
+	consumed, detached, flush := det.Feed(msg)
+	id := m.attach.ProjectID()
+
+	if len(flush) > 0 {
+		if err := m.attach.SendBytes(flush); err != nil {
+			return m, func() tea.Msg {
+				return attach.EmbeddedAttachEndedMsg{Reason: "child write failed: " + err.Error() + " (" + id + ")"}
+			}
+		}
+	}
+
+	if detached {
+		return m, func() tea.Msg {
+			return attach.EmbeddedAttachEndedMsg{Reason: "detached from " + id}
+		}
+	}
+
+	if consumed {
+		// Schedule a flush tick so a lone Ctrl-] eventually reaches the
+		// child if no follow-up key arrives.
+		return m, attach.DetachFlushTickCmd()
+	}
+
+	if k, ok := attach.MsgToKey(msg); ok {
+		m.attach.SendKey(k)
 	}
 	return m, nil
 }
@@ -157,8 +204,12 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case key.Matches(msg, m.keys.Attach):
+		// Repurposed in phase 04: 'a' enters the embedded vt session
+		// in the content pane. The legacy fullscreen attach flow
+		// (AttachRequestMsg → handleAttachRequest) is still wired but
+		// no longer reachable from a key binding.
 		if id := m.sidebar.Selected(); id != "" {
-			return m, func() tea.Msg { return AttachRequestMsg{ID: id} }
+			return m, func() tea.Msg { return EmbeddedAttachRequestMsg{ID: id} }
 		}
 
 	case key.Matches(msg, m.keys.ClearLog):

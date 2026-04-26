@@ -122,6 +122,29 @@ func handleMsg(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mode = ModeNormal
 		return m, nil
 
+	case EmbeddedAttachRequestMsg:
+		return handleEmbeddedAttachRequest(m, msg)
+
+	case attach.EmbeddedAttachStartedMsg:
+		// Start the refresh + write-error loops once the session is wired.
+		if m.attach == nil {
+			return m, nil
+		}
+		return m, tea.Batch(m.attach.RefreshCmd(), m.attach.WatchErrCmd())
+
+	case attach.VTRefreshMsg:
+		if m.attach == nil {
+			return m, nil
+		}
+		// Re-arm the refresh wait — single-shot per ping.
+		return m, m.attach.RefreshCmd()
+
+	case attach.EmbeddedAttachEndedMsg:
+		return handleEmbeddedAttachEnd(m, msg)
+
+	case attach.DetachFlushMsg:
+		return handleDetachFlush(m)
+
 	case panes.CopiedMsg:
 		// Stay in log focus after a yank — user keeps browsing / yanking. Only
 		// double-Esc returns control to the sidebar.
@@ -170,6 +193,14 @@ func handleResize(m Model, msg tea.WindowSizeMsg) Model {
 		ptyCols := uint16(max(40, logW-4))
 		ptyRows := uint16(max(10, contentH-4))
 		m.mgr.Resize(id, ptyCols, ptyRows)
+	}
+	if m.mode == ModeEmbeddedAttach && m.attach != nil {
+		// The embedded grid fills the log pane exactly — no internal
+		// border — so the emulator dims must match logW × contentH.
+		cols := uint16(max(20, logW))
+		rows := uint16(max(5, contentH))
+		m.mgr.Resize(m.attach.ProjectID(), cols, rows)
+		m.attach.Resize(int(cols), int(rows))
 	}
 	return m
 }
@@ -236,6 +267,95 @@ func handleAttachRequest(m Model, msg AttachRequestMsg) (tea.Model, tea.Cmd) {
 		}
 		return AttachEndedMsg{}
 	}
+}
+
+// handleEmbeddedAttachRequest brings up the in-pane vt session for the
+// given project. It verifies the child is running, grabs the ptmx,
+// resizes both PTY and emulator to match the content pane, subscribes
+// the emulator to the PTY tee, and stashes the Session on the model.
+func handleEmbeddedAttachRequest(m Model, msg EmbeddedAttachRequestMsg) (tea.Model, tea.Cmd) {
+	snap := m.runtime.Snapshot()
+	running := false
+	for _, r := range snap {
+		if r.ID == msg.ID && r.State == "running" {
+			running = true
+			break
+		}
+	}
+	if !running {
+		m.overlays.Toasts.Add("attach: process not running", overlays.ToastErr)
+		return m, nil
+	}
+	if m.attach != nil {
+		m.overlays.Toasts.Add("attach: already attached — detach first", overlays.ToastWarn)
+		return m, nil
+	}
+
+	ptmx, err := m.mgr.Attach(msg.ID)
+	if err != nil {
+		m.overlays.Toasts.Add("attach: "+err.Error(), overlays.ToastErr)
+		return m, nil
+	}
+
+	sidebarW := sidebarWidth(m.width, m.cfg)
+	logW := m.width - sidebarW
+	contentH := m.height - statusBarHeight
+	cols := max(20, logW)
+	rows := max(5, contentH)
+
+	// Resize the PTY before subscribing so the first frame the emulator
+	// sees has the right dims and apps redraw cleanly into the pane.
+	m.mgr.Resize(msg.ID, uint16(cols), uint16(rows))
+
+	sess, err := attach.NewSession(msg.ID, ptmx, cols, rows, m.mgr.Subscribe)
+	if err != nil {
+		m.overlays.Toasts.Add("attach: "+err.Error(), overlays.ToastErr)
+		return m, nil
+	}
+
+	m.attach = sess
+	m.mode = ModeEmbeddedAttach
+	id := msg.ID
+	return m, func() tea.Msg { return attach.EmbeddedAttachStartedMsg{ID: id} }
+}
+
+// handleEmbeddedAttachEnd tears the session down (Close unsubscribes and
+// shuts the emulator), surfaces a toast, and returns to ModeNormal.
+func handleEmbeddedAttachEnd(m Model, msg attach.EmbeddedAttachEndedMsg) (tea.Model, tea.Cmd) {
+	if m.attach != nil {
+		m.attach.Close()
+		m.attach = nil
+	}
+	m.mode = ModeNormal
+	reason := strings.TrimSpace(msg.Reason)
+	if reason == "" {
+		reason = "detached"
+	}
+	level := overlays.ToastInfo
+	if strings.Contains(reason, "fail") || strings.Contains(reason, "error") {
+		level = overlays.ToastErr
+	}
+	m.overlays.Toasts.Add(reason, level)
+	m.refreshLogPanel()
+	return m, nil
+}
+
+// handleDetachFlush is the timer-driven fallback for a lone Ctrl-]: if
+// the detector arm window has elapsed, the swallowed byte is written to
+// the PTY so the child sees the keypress.
+func handleDetachFlush(m Model) (tea.Model, tea.Cmd) {
+	if m.attach == nil {
+		return m, nil
+	}
+	if bytes := m.attach.Detector().FlushIfExpired(); len(bytes) > 0 {
+		if err := m.attach.SendBytes(bytes); err != nil {
+			id := m.attach.ProjectID()
+			return m, func() tea.Msg {
+				return attach.EmbeddedAttachEndedMsg{Reason: "child write failed: " + err.Error() + " (" + id + ")"}
+			}
+		}
+	}
+	return m, nil
 }
 
 // handleCheckoutBranch runs git checkout for the selected project and shows a toast.

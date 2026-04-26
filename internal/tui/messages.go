@@ -38,6 +38,17 @@ type AttachRequestMsg struct {
 // AttachEndedMsg is sent when the attached PTY session ends or is detached.
 type AttachEndedMsg struct{}
 
+// EmbeddedAttachRequestMsg requests entering embedded-attach mode for the
+// given project. Distinct from AttachRequestMsg (the legacy fullscreen flow)
+// so the routing layer can pick the right handler.
+type EmbeddedAttachRequestMsg struct {
+	ID string
+}
+
+// VTRefreshMsg, EmbeddedAttachEndedMsg, EmbeddedAttachStartedMsg, and
+// DetachFlushMsg are declared in package attach because their lifetime is
+// owned by attach.Session — see internal/tui/attach/session.go.
+
 // RestartAllMsg requests restarting every project.
 type RestartAllMsg struct{}
 

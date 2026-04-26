@@ -54,6 +54,19 @@ type Child struct {
 	stopRequested atomic.Int32
 
 	events chan<- Event
+
+	// PTY tee subscribers — receive a copy of every byte read from the PTY
+	// master. Used by attach mode to feed a vt emulator. Held under subsMu.
+	subsMu sync.Mutex
+	subs   map[*subscription]struct{}
+}
+
+// subscription is a single tee target.
+type subscription struct {
+	w io.Writer
+	// dropped flips to true if a Write returned an error so the next pump
+	// iteration unsubscribes us.
+	dropped atomic.Bool
 }
 
 func newChild(id string, cfg config.Project, settings config.Settings, reg Registry, events chan<- Event, wg wgDone) *Child {
@@ -164,6 +177,9 @@ func (c *Child) run(ctx context.Context, cancel context.CancelFunc) {
 		if n > 0 {
 			chunk := make([]byte, n)
 			copy(chunk, buf[:n])
+			// Fan out to attach subscribers BEFORE log ring so a slow log
+			// writer can't backpressure the vt emulator.
+			c.fanout(chunk)
 			// Write raw bytes to registry (ring + rotator).
 			c.reg.WriteRaw(c.ID, chunk)
 			// Emit log line events.
@@ -358,6 +374,49 @@ func (c *Child) Attach() (*os.File, error) {
 		return nil, fmt.Errorf("child %s: not running", c.ID)
 	}
 	return ptmx, nil
+}
+
+// Subscribe registers w to receive a copy of every byte read from the PTY.
+// Returns an unsubscribe func. The writer must be non-blocking — if a Write
+// returns an error the subscription is auto-removed on the next pump tick.
+func (c *Child) Subscribe(w io.Writer) func() {
+	sub := &subscription{w: w}
+	c.subsMu.Lock()
+	if c.subs == nil {
+		c.subs = make(map[*subscription]struct{})
+	}
+	c.subs[sub] = struct{}{}
+	c.subsMu.Unlock()
+	return func() {
+		c.subsMu.Lock()
+		delete(c.subs, sub)
+		c.subsMu.Unlock()
+	}
+}
+
+// fanout writes chunk to every active subscriber. Subscribers whose Write
+// errors are dropped on the next call. Holds subsMu briefly.
+func (c *Child) fanout(chunk []byte) {
+	c.subsMu.Lock()
+	if len(c.subs) == 0 {
+		c.subsMu.Unlock()
+		return
+	}
+	// Snapshot to avoid holding the lock during Write.
+	snap := make([]*subscription, 0, len(c.subs))
+	for s := range c.subs {
+		if s.dropped.Load() {
+			delete(c.subs, s)
+			continue
+		}
+		snap = append(snap, s)
+	}
+	c.subsMu.Unlock()
+	for _, s := range snap {
+		if _, err := s.w.Write(chunk); err != nil {
+			s.dropped.Store(true)
+		}
+	}
 }
 
 // State returns the current state string.

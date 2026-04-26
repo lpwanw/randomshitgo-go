@@ -15,6 +15,11 @@ const (
 	ModeFilter
 	// ModeAttach is active while the terminal is handed to a child PTY.
 	ModeAttach
+	// ModeEmbeddedAttach is active when a child PTY is rendered into the
+	// content pane via an in-process vt emulator. Sidebar + status bar
+	// remain visible and keystrokes flow into the PTY until the user
+	// presses Ctrl-] Ctrl-] (or the child exits) to detach.
+	ModeEmbeddedAttach
 	// ModeHelp is active when the keybinding cheatsheet overlay is shown.
 	ModeHelp
 	// ModeCommand is active when the vim-style `:` command bar is open.
@@ -37,6 +42,8 @@ func (m Mode) String() string {
 		return "FILTER"
 	case ModeAttach:
 		return "ATTACH"
+	case ModeEmbeddedAttach:
+		return "TERM"
 	case ModeHelp:
 		return "HELP"
 	case ModeCommand:

@@ -3,6 +3,7 @@ package process
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -158,6 +159,18 @@ func (m *Manager) Attach(id string) (*os.File, error) {
 		return nil, fmt.Errorf("manager: unknown project %q", id)
 	}
 	return child.Attach()
+}
+
+// Subscribe registers w to receive a copy of every byte the project's PTY
+// emits. Returns an unsubscribe func. Errors if the project is not running.
+func (m *Manager) Subscribe(id string, w io.Writer) (func(), error) {
+	m.mu.RLock()
+	child, ok := m.children[id]
+	m.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("manager: unknown project %q", id)
+	}
+	return child.Subscribe(w), nil
 }
 
 // getOrCreate returns an existing Child or creates one, wiring its events into
