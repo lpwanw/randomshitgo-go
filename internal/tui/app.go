@@ -29,6 +29,7 @@ const (
 // Model is the root Bubble Tea model for the procs TUI.
 type Model struct {
 	cfg     *config.Config
+	cfgPath string // resolved absolute config path; "" if unknown
 	mgr     *process.Manager
 	runtime *state.RuntimeStore
 	ui      *state.UIStore
@@ -80,7 +81,7 @@ type gitInfoCache struct {
 }
 
 // New constructs a root Model wiring all sub-models.
-func New(cfg *config.Config, mgr *process.Manager, runtime *state.RuntimeStore, ui *state.UIStore, reg *state.Registry) Model {
+func New(cfg *config.Config, mgr *process.Manager, runtime *state.RuntimeStore, ui *state.UIStore, reg *state.Registry, cfgPath string) Model {
 	groups := make(map[string][]string)
 	if cfg.Groups != nil {
 		for k, v := range cfg.Groups {
@@ -89,6 +90,7 @@ func New(cfg *config.Config, mgr *process.Manager, runtime *state.RuntimeStore, 
 	}
 	return Model{
 		cfg:         cfg,
+		cfgPath:     cfgPath,
 		mgr:         mgr,
 		runtime:     runtime,
 		ui:          ui,

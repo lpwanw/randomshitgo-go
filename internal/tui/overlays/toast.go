@@ -82,6 +82,15 @@ func (ts *ToastStack) Prune(now time.Time) {
 // Len returns the number of active toasts.
 func (ts *ToastStack) Len() int { return len(ts.items) }
 
+// Last returns the most recently added toast and true, or an empty Toast and
+// false if the stack is empty.
+func (ts *ToastStack) Last() (Toast, bool) {
+	if len(ts.items) == 0 {
+		return Toast{}, false
+	}
+	return ts.items[len(ts.items)-1], true
+}
+
 // View renders the toast stack as a compact block sized to its content.
 // Returns "" when there are no toasts. The caller is responsible for placing
 // the block onto the main canvas (see tui.overlayBottomRight) — this function

@@ -66,6 +66,27 @@ func (s *RuntimeStore) Seed(ids []string) {
 	}
 }
 
+// Delete removes the given ids from the store and notifies subscribers.
+// No-op for ids that aren't present.
+func (s *RuntimeStore) Delete(ids []string) {
+	if len(ids) == 0 {
+		return
+	}
+	s.mu.Lock()
+	for _, id := range ids {
+		delete(s.m, id)
+	}
+	subs := s.subs
+	s.mu.Unlock()
+
+	for _, ch := range subs {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
 // Apply mutates the store based on the incoming event.
 func (s *RuntimeStore) Apply(ev event.Event) {
 	s.mu.Lock()

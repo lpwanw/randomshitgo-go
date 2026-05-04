@@ -24,6 +24,7 @@ type KeyMap struct {
 	Top           key.Binding
 	Bottom        key.Binding
 	ClearLog      key.Binding
+	EditConfig    key.Binding
 	Help          key.Binding
 	Command       key.Binding
 	Quit          key.Binding
@@ -124,6 +125,10 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("ctrl+l"),
 			key.WithHelp("ctrl+l", "clear log buffer"),
 		),
+		EditConfig: key.NewBinding(
+			key.WithKeys("ctrl+e"),
+			key.WithHelp("ctrl+e", "edit config + reload"),
+		),
 		Help: key.NewBinding(
 			key.WithKeys("?"),
 			key.WithHelp("?", "toggle help"),
@@ -197,7 +202,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down, k.QuickJump},
 		{k.Start, k.Restart, k.Stop, k.Attach},
 		{k.GroupPicker, k.BranchPicker, k.GitFetch, k.GitPull, k.StopAll},
-		{k.Filter, k.NextMatch, k.PrevMatch, k.PageUp, k.PageDown, k.Top, k.Bottom, k.ClearLog},
+		{k.Filter, k.NextMatch, k.PrevMatch, k.PageUp, k.PageDown, k.Top, k.Bottom, k.ClearLog, k.EditConfig},
 		{k.CopyEnter, k.CopyMotion, k.CopyVisual, k.CopyYank},
 		{k.MouseSelect, k.AttachPaste},
 		{k.Help, k.Command, k.Quit, k.Esc},

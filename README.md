@@ -17,6 +17,7 @@ so you can type directly into any child process.
 - Git branch display per project + in-TUI branch picker with live filter, plus `:fetch` / `:pull --ff-only`
 - Active port/socket display (processes that LISTEN show their port)
 - Per-process CPU% and memory (RSS) in the status bar (whole-process-tree sum; updates every 2 s). CPU can exceed 100% on multi-core workloads — matches `htop` convention.
+- Hotkey **`Ctrl-E`** opens the active config in `$VISUAL`/`$EDITOR`; on save, procs auto-reloads (added projects appear, removed projects stop, changed projects toast a "restart to apply" hint). `:reload` re-reads from disk without opening an editor.
 - Goroutine-safe; race-detector clean
 
 ## Install
@@ -108,6 +109,17 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `settings.restart_max_attempts` | int | 5 | Max restart attempts |
 | `settings.pty_cols` / `pty_rows` | int | 120 / 40 | PTY dimensions |
 
+### Live reload
+
+Press `Ctrl-E` in the TUI to open the active config in `$VISUAL` (preferred), `$EDITOR`, or `vi` (fallback). Saving and quitting the editor triggers an automatic reload:
+
+- **Added** projects appear in the sidebar immediately.
+- **Removed** projects are stopped (if running) and dropped from the sidebar.
+- **Changed** projects (path/cmd/env/restart) keep running on the old definition; a toast hints "restart to apply" — press `r` on the project to pick up the new command.
+- Parse errors keep the previous config intact; the TUI shows a `config error: …` toast.
+
+`:reload` re-reads the file from disk without opening an editor (useful when you edit it from another terminal). For GUI editors, set `EDITOR` so it blocks until exit — e.g. `export EDITOR='code -w'`, `export EDITOR='subl -w'`.
+
 ## Keybindings
 
 | Key | Action |
@@ -138,6 +150,8 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `:set wrap` / `:set nowrap` | Toggle hard-wrap of long lines at viewport width. On by default |
 | `:clear` / `:c` / `Ctrl-L` | Empty the in-memory log buffer for the selected project (files on disk untouched) |
 | `:w {path}` | Dump the currently visible log buffer to `{path}` (supports `~` / `$VAR`) |
+| `Ctrl-E` / `:edit` | Open active config in `$VISUAL` / `$EDITOR` / `vi`; auto-reload on save |
+| `:reload` | Re-read config from disk without opening an editor |
 | `:fetch` | `git fetch --prune` the selected project (async; result toasted) |
 | `:pull` | `git pull --ff-only` the selected project — never merges; refuses diverged branches |
 | `?` | Toggle help overlay |

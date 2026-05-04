@@ -47,7 +47,12 @@ Config: https://github.com/lpwanw/randomshitgo-go/blob/main/examples/config.yml
 		return
 	}
 
-	cfg, err := config.Load(*cfgPath)
+	resolvedCfgPath, err := config.ResolvePath(*cfgPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "procs: config error: %v\n", err)
+		os.Exit(1)
+	}
+	cfg, err := config.LoadFromPath(resolvedCfgPath)
 	if err != nil {
 		var pathErr *os.PathError
 		if errors.As(err, &pathErr) {
@@ -85,7 +90,7 @@ Config: https://github.com/lpwanw/randomshitgo-go/blob/main/examples/config.yml
 		}
 	}()
 
-	m := tui.New(cfg, mgr, rt, ui, reg)
+	m := tui.New(cfg, mgr, rt, ui, reg, resolvedCfgPath)
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	m.SetProgram(p)
 

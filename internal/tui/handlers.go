@@ -176,6 +176,9 @@ func handleMsg(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.overlays.Branch.SetBranches(msg.branches)
 		m.overlays.Branch.Show()
 		return m, nil
+
+	case ConfigEditedMsg:
+		return handleConfigEdited(m, msg)
 	}
 
 	return m, nil
@@ -585,6 +588,10 @@ func dispatchCommand(m Model, text string) (tea.Model, tea.Cmd) {
 		return handleGitFetch(m)
 	case "pull":
 		return handleGitPull(m)
+	case "edit", "e":
+		return handleEditConfig(m)
+	case "reload":
+		return reloadConfig(m)
 	}
 
 	// Commands with arguments — split on first space.

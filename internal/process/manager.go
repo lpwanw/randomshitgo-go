@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"sync"
 	"time"
@@ -171,6 +172,86 @@ func (m *Manager) Subscribe(id string, w io.Writer) (func(), error) {
 		return nil, fmt.Errorf("manager: unknown project %q", id)
 	}
 	return child.Subscribe(w), nil
+}
+
+// ReloadResult summarizes a config reload diff.
+type ReloadResult struct {
+	Added   []string // project ids new in newCfg
+	Removed []string // project ids gone from newCfg
+	Changed []string // project ids whose definition changed (cmd/path/env/restart)
+	Stopped []string // subset of Removed that were running and got stopped
+}
+
+// Reload swaps the manager's *config.Config for newCfg and reconciles state:
+// removed projects are stopped (best-effort), running projects whose cmd/path
+// changed are listed in Changed (NOT auto-restarted — the user must do that
+// explicitly), and added projects are listed for the caller to seed elsewhere.
+// Children retain their original cfg snapshot until their next start/restart.
+func (m *Manager) Reload(newCfg *config.Config) ReloadResult {
+	if newCfg == nil {
+		return ReloadResult{}
+	}
+
+	m.mu.Lock()
+	oldProjects := map[string]config.Project{}
+	if m.cfg != nil {
+		for k, v := range m.cfg.Projects {
+			oldProjects[k] = v
+		}
+	}
+	runningIDs := make(map[string]struct{}, len(m.children))
+	for id := range m.children {
+		runningIDs[id] = struct{}{}
+	}
+	m.cfg = newCfg
+	m.mu.Unlock()
+
+	var res ReloadResult
+	for id := range oldProjects {
+		if _, ok := newCfg.Projects[id]; !ok {
+			res.Removed = append(res.Removed, id)
+		}
+	}
+	for id := range newCfg.Projects {
+		if _, ok := oldProjects[id]; !ok {
+			res.Added = append(res.Added, id)
+		}
+	}
+	for id, oldP := range oldProjects {
+		if newP, ok := newCfg.Projects[id]; ok && projectChanged(oldP, newP) {
+			res.Changed = append(res.Changed, id)
+		}
+	}
+
+	// Stop removed-and-running children synchronously per id but parallel across
+	// ids. Drop the entry on success regardless of stop error.
+	for _, id := range res.Removed {
+		if _, running := runningIDs[id]; !running {
+			continue
+		}
+		m.mu.RLock()
+		child := m.children[id]
+		m.mu.RUnlock()
+		if child == nil {
+			continue
+		}
+		_ = child.Stop()
+		m.mu.Lock()
+		delete(m.children, id)
+		m.mu.Unlock()
+		res.Stopped = append(res.Stopped, id)
+	}
+
+	return res
+}
+
+// projectChanged reports whether two Project definitions differ in any field
+// that warrants restart for the change to take effect.
+func projectChanged(a, b config.Project) bool {
+	if a.Path != b.Path || a.Cmd != b.Cmd || a.Restart != b.Restart || a.EnvFile != b.EnvFile {
+		return true
+	}
+	return !maps.Equal(a.Env, b.Env)
 }
 
 // getOrCreate returns an existing Child or creates one, wiring its events into

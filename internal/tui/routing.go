@@ -229,6 +229,9 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.ClearLog):
 		return handleClearBuffer(m)
 
+	case key.Matches(msg, m.keys.EditConfig):
+		return handleEditConfig(m)
+
 	case key.Matches(msg, m.keys.StopAll):
 		grace := time.Duration(m.cfg.Settings.ShutdownGraceMs) * time.Millisecond
 		return m, stopAllCmd(m.mgr, grace)

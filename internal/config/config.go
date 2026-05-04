@@ -64,7 +64,12 @@ func Load(explicit string) (*Config, error) {
 	if err != nil {
 		return nil, wrap("", "", "resolve config path", err)
 	}
+	return LoadFromPath(path)
+}
 
+// LoadFromPath reads/parses/validates/expands a config from an already
+// resolved path. Used by reload paths that cached the path at startup.
+func LoadFromPath(path string) (*Config, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, wrap(path, "", "read config file", err)

@@ -34,7 +34,7 @@ func newTestModel() Model {
 	reg := state.NewRegistry(cfg.Settings)
 	mgr := process.New(cfg, reg)
 
-	return New(cfg, mgr, rt, ui, reg)
+	return New(cfg, mgr, rt, ui, reg, "")
 }
 
 // feedMsg feeds a message through Update and returns the updated model and cmd.

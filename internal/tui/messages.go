@@ -76,6 +76,13 @@ type PortInfoMsg struct {
 	Port int
 }
 
+// ConfigEditedMsg is sent when the external editor exits after `e` / `:edit`.
+// Err is non-nil if the editor returned non-zero or failed to spawn; in that
+// case the reload is skipped.
+type ConfigEditedMsg struct {
+	Err error
+}
+
 // ProcStatsMsg delivers the per-project CPU% + RSS snapshot. CPU is a
 // percentage that can exceed 100 on multi-core processes; RSS is in bytes.
 // OK=false when sampling failed (process just died, permissions, etc.) so
