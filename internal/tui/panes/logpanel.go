@@ -551,8 +551,10 @@ func (lp *LogPanel) paintMatches() {
 			out[i] = applySeverity(out[i])
 		}
 	}
-	if lp.inCopy {
+	if lp.inCopy || lp.sel.mode != selNone {
 		lp.overlaySelection(out)
+	}
+	if lp.inCopy {
 		out[lp.cur.line] = overlayCursor(out[lp.cur.line], lp.cur.col)
 	}
 
