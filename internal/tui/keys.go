@@ -40,6 +40,9 @@ type KeyMap struct {
 	CopyMotion key.Binding
 	CopyVisual key.Binding
 	CopyYank   key.Binding
+	// MouseSelect, AttachPaste are synthetic — render-only help rows.
+	MouseSelect key.Binding
+	AttachPaste key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings.
@@ -172,6 +175,14 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("y"),
 			key.WithHelp("yy Y yiw ya\" yi(", "focus: yank (operator+text obj)"),
 		),
+		MouseSelect: key.NewBinding(
+			key.WithKeys("mouse"),
+			key.WithHelp("drag", "log: mouse select → release copies"),
+		),
+		AttachPaste: key.NewBinding(
+			key.WithKeys("paste"),
+			key.WithHelp("Cmd-V / Ctrl-Shift-V", "attach: paste → child PTY"),
+		),
 	}
 }
 
@@ -188,6 +199,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.GroupPicker, k.BranchPicker, k.GitFetch, k.GitPull, k.StopAll},
 		{k.Filter, k.NextMatch, k.PrevMatch, k.PageUp, k.PageDown, k.Top, k.Bottom, k.ClearLog},
 		{k.CopyEnter, k.CopyMotion, k.CopyVisual, k.CopyYank},
+		{k.MouseSelect, k.AttachPaste},
 		{k.Help, k.Command, k.Quit, k.Esc},
 	}
 }

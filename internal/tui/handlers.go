@@ -28,6 +28,11 @@ func handleMsg(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		return routeKey(m, msg)
 
 	case tea.MouseMsg:
+		// In embedded-attach mode the log panel is replaced by the vt
+		// render; mouse goes nowhere (PTY mouse forwarding TBD).
+		if m.mode == ModeEmbeddedAttach || m.mode == ModeAttach {
+			return m, nil
+		}
 		cmd := m.logPanel.Update(msg)
 		return m, cmd
 
@@ -187,6 +192,7 @@ func handleResize(m Model, msg tea.WindowSizeMsg) Model {
 
 	m.sidebar.SetSize(sidebarW, contentH)
 	m.logPanel.SetSize(logW, contentH)
+	m.logPanel.SetOrigin(sidebarW, 0)
 	m.statusBar.Width = m.width
 
 	if id := m.sidebar.Selected(); id != "" {

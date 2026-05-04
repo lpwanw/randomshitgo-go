@@ -104,6 +104,20 @@ func routeEmbeddedAttach(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = ModeNormal
 		return m, nil
 	}
+	// Bracketed paste from the host terminal arrives as a single KeyMsg
+	// with Paste=true; forward to the child via the emulator's Paste
+	// path so the child sees mode-2004 wrappers when it asked for them.
+	// Skip the detach detector — paste content can never be Ctrl-].
+	if msg.Paste {
+		text := string(msg.Runes)
+		if err := m.attach.SendPaste(text); err != nil {
+			id := m.attach.ProjectID()
+			return m, func() tea.Msg {
+				return attach.EmbeddedAttachEndedMsg{Reason: "paste failed: " + err.Error() + " (" + id + ")"}
+			}
+		}
+		return m, nil
+	}
 	det := m.attach.Detector()
 	consumed, detached, flush := det.Feed(msg)
 	id := m.attach.ProjectID()

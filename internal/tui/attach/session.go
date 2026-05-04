@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -114,6 +115,22 @@ func (s *Session) Detector() *KeyDetach { return &s.detector }
 // SendKey routes the key through the emulator so DECCKM / keypad mode
 // take effect; the drain goroutine writes the encoded bytes to the PTY.
 func (s *Session) SendKey(k uv.KeyPressEvent) { s.term.SendKey(k) }
+
+// SendPaste forwards pasted text to the child PTY via the emulator's
+// Paste path so DEC bracketed-paste mode (?2004) is honoured when the
+// child enabled it. Newlines are normalised to CR — terminal apps treat
+// CR as Enter; LF would land mid-line in line-buffered shells. Returns
+// nil because the emulator's drain pump owns errors (forwarded through
+// the writeErrCh that WatchErrCmd watches).
+func (s *Session) SendPaste(text string) error {
+	if text == "" {
+		return nil
+	}
+	text = strings.ReplaceAll(text, "\r\n", "\r")
+	text = strings.ReplaceAll(text, "\n", "\r")
+	s.term.Paste(text)
+	return nil
+}
 
 // SendBytes writes raw bytes straight to the PTY. Used by the routing
 // layer to flush swallowed Ctrl-] bytes when the detach handshake fails.

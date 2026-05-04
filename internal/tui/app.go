@@ -163,6 +163,7 @@ func (m Model) View() string {
 	m.sidebar.SetSize(sidebarW, contentH)
 	m.sidebar.SetFocused(m.mode != ModeLogFocus)
 	m.logPanel.SetSize(logW, contentH)
+	m.logPanel.SetOrigin(sidebarW, 0)
 	m.statusBar.Width = m.width
 	m.statusBar.Mode = m.displayMode()
 

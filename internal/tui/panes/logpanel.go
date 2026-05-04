@@ -96,6 +96,18 @@ type LogPanel struct {
 	sqlOn      bool // true = reformat SQL with keyword line breaks
 	wrapOn     bool // true = hard-wrap each rendered row to viewport width
 	originalLines []string // pre-pretty snapshot; rebuilt into rawLines on toggle
+	xOrigin    int       // screen-X of panel's left edge (for mouse coord translation)
+	yOrigin    int       // screen-Y of panel's top edge
+	rowToRaw   []int     // rendered-row index → rawLines index (rebuilt by paintMatches)
+	rowFirst   []bool    // whether rendered row k is the first wrapped row of its raw line
+	drag       mouseDrag // left-button drag state for mouse selection
+}
+
+// mouseDrag tracks left-button-down state across MouseMsg events so a
+// Press → Motion → Release sequence can drive a charwise selection.
+type mouseDrag struct {
+	pressed   bool
+	anchorAt  cursor
 }
 
 // NewLogPanel initialises a LogPanel with sticky-bottom on. The viewport is
@@ -146,6 +158,13 @@ func (lp *LogPanel) SetSize(width, height int) {
 	lp.vp.Width = max(1, width-3-lp.gutterWidth())
 	lp.vp.Height = max(1, height-2)
 	lp.dirty = true
+}
+
+// SetOrigin records the panel's top-left in absolute screen coordinates so
+// MouseMsg X/Y can be translated to in-pane content cells.
+func (lp *LogPanel) SetOrigin(x, y int) {
+	lp.xOrigin = x
+	lp.yOrigin = y
 }
 
 // SetGutter toggles the line-number gutter in Normal mode. Copy mode always
@@ -221,7 +240,9 @@ func (lp *LogPanel) SetLines(lines []string) {
 	}
 	lp.dirty = true
 	lp.renderContent()
-	if lp.sticky && !lp.paused {
+	// Don't auto-scroll while a selection is live; would yank lines out from
+	// under the user.
+	if lp.sticky && !lp.paused && !lp.HasSelection() {
 		lp.vp.GotoBottom()
 	}
 }
@@ -318,12 +339,7 @@ func (lp *LogPanel) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseMsg:
-		var cmd tea.Cmd
-		lp.vp, cmd = lp.vp.Update(msg)
-		if !lp.vp.AtBottom() {
-			lp.sticky = false
-		}
-		return cmd
+		return lp.handleMouse(msg)
 	}
 
 	return nil
@@ -568,6 +584,13 @@ func (lp *LogPanel) paintMatches() {
 	}
 
 	flat := make([]string, len(rows))
+	if cap(lp.rowToRaw) < len(rows) {
+		lp.rowToRaw = make([]int, len(rows))
+		lp.rowFirst = make([]bool, len(rows))
+	} else {
+		lp.rowToRaw = lp.rowToRaw[:len(rows)]
+		lp.rowFirst = lp.rowFirst[:len(rows)]
+	}
 	if gw > 0 {
 		numW := gw - 3
 		blankLabel := styleGutter.Render(strings.Repeat(" ", numW) + " │ ")
@@ -577,10 +600,14 @@ func (lp *LogPanel) paintMatches() {
 			} else {
 				flat[k] = blankLabel + r.line
 			}
+			lp.rowToRaw[k] = r.origIdx
+			lp.rowFirst[k] = r.first
 		}
 	} else {
 		for k, r := range rows {
 			flat[k] = r.line
+			lp.rowToRaw[k] = r.origIdx
+			lp.rowFirst[k] = r.first
 		}
 	}
 	lp.vp.SetContent(strings.Join(flat, "\n"))
