@@ -346,7 +346,7 @@ func handleEmbeddedAttachEnd(m Model, msg attach.EmbeddedAttachEndedMsg) (tea.Mo
 	return m, nil
 }
 
-// handleDetachFlush is the timer-driven fallback for a lone Ctrl-]: if
+// handleDetachFlush is the timer-driven fallback for a lone Esc: if
 // the detector arm window has elapsed, the swallowed byte is written to
 // the PTY so the child sees the keypress.
 func handleDetachFlush(m Model) (tea.Model, tea.Cmd) {

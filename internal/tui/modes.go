@@ -18,7 +18,7 @@ const (
 	// ModeEmbeddedAttach is active when a child PTY is rendered into the
 	// content pane via an in-process vt emulator. Sidebar + status bar
 	// remain visible and keystrokes flow into the PTY until the user
-	// presses Ctrl-] Ctrl-] (or the child exits) to detach.
+	// presses Esc Esc (or the child exits) to detach.
 	ModeEmbeddedAttach
 	// ModeHelp is active when the keybinding cheatsheet overlay is shown.
 	ModeHelp

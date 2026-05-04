@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// TestController_DetachOnDoubleEscape verifies that sending 0x1d 0x1d to the
+// TestController_DetachOnDoubleEscape verifies that sending 0x1b 0x1b to the
 // stdin side triggers detach. We use two os.Pipe pairs as a fake PTY so no
 // real terminal is needed (and term.MakeRaw is skipped via pipeController).
 func TestController_DetachOnDoubleEscape(t *testing.T) {
@@ -49,7 +49,7 @@ func TestController_DetachOnDoubleEscape(t *testing.T) {
 	// Give the goroutine time to start.
 	time.Sleep(20 * time.Millisecond)
 	// Write two escape bytes quickly.
-	stdinW.Write([]byte{0x1d, 0x1d}) //nolint:errcheck
+	stdinW.Write([]byte{0x1b, 0x1b}) //nolint:errcheck
 
 	select {
 	case res := <-done:

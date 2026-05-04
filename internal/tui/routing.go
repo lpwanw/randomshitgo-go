@@ -55,7 +55,7 @@ func stopAllCmd(mgr *process.Manager, grace time.Duration) tea.Cmd {
 func routeKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// In embedded-attach mode Ctrl+C must reach the child program (so
 	// `^C` interrupts e.g. a running rails console) instead of arming
-	// our double-tap-to-quit. The detach handshake (Ctrl-] Ctrl-]) is
+	// our double-tap-to-quit. The detach handshake (Esc Esc) is
 	// the only way out.
 	if msg.String() == "ctrl+c" && m.mode != ModeEmbeddedAttach {
 		return handleCtrlC(m)
@@ -93,9 +93,9 @@ func routeKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // routeEmbeddedAttach forwards every keystroke into the child PTY,
-// intercepting only the Ctrl-] Ctrl-] detach handshake. The detector is
+// intercepting only the Esc Esc detach handshake. The detector is
 // fed first; if it consumes the key we're done. If it produces flush
-// bytes (the saved Ctrl-] from a non-handshake follow-up) those go out
+// bytes (the saved Esc from a non-handshake follow-up) those go out
 // to the PTY before the current key. PTY write errors trigger an
 // auto-detach via EmbeddedAttachEndedMsg.
 func routeEmbeddedAttach(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -107,7 +107,7 @@ func routeEmbeddedAttach(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Bracketed paste from the host terminal arrives as a single KeyMsg
 	// with Paste=true; forward to the child via the emulator's Paste
 	// path so the child sees mode-2004 wrappers when it asked for them.
-	// Skip the detach detector — paste content can never be Ctrl-].
+	// Skip the detach detector — paste content can never be Esc.
 	if msg.Paste {
 		text := string(msg.Runes)
 		if err := m.attach.SendPaste(text); err != nil {
@@ -137,7 +137,7 @@ func routeEmbeddedAttach(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if consumed {
-		// Schedule a flush tick so a lone Ctrl-] eventually reaches the
+		// Schedule a flush tick so a lone Esc eventually reaches the
 		// child if no follow-up key arrives.
 		return m, attach.DetachFlushTickCmd()
 	}

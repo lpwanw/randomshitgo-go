@@ -1,12 +1,13 @@
-// Package attach provides the PTY bridge and Ctrl-] Ctrl-] escape detector
+// Package attach provides the PTY bridge and double-Esc escape detector
 // used when the user presses 'a' to attach to a running child process.
 package attach
 
 import "time"
 
 const (
-	// DefaultEscapeByte is Ctrl-] (0x1d), matching the telnet convention.
-	DefaultEscapeByte byte = 0x1d
+	// DefaultEscapeByte is ESC (0x1b), matching log-focus mode's double-Esc
+	// exit gesture so users learn one detach key across the TUI.
+	DefaultEscapeByte byte = 0x1b
 	// DefaultTimeout is the window within which a second escape byte triggers detach.
 	DefaultTimeout = 400 * time.Millisecond
 )

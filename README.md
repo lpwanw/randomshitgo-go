@@ -12,7 +12,7 @@ so you can type directly into any child process.
 - Per-project log panes with scroll, filter, and rotation
 - Named groups — boot the whole stack with one key
 - Auto-restart on failure with configurable exponential backoff
-- Attach mode: raw PTY bridge with `Ctrl-] Ctrl-]` to detach; OS-native paste (Cmd-V / Ctrl-Shift-V / Shift-Insert) is forwarded to the child as bracketed paste when the child enabled mode 2004
+- Attach mode: raw PTY bridge with `Esc Esc` to detach; OS-native paste (Cmd-V / Ctrl-Shift-V / Shift-Insert) is forwarded to the child as bracketed paste when the child enabled mode 2004
 - Mouse drag-select on the log pane → release auto-copies to system clipboard. Wheel still scrolls. Hold Option (macOS Terminal/iTerm) or Shift (most Linux terminals) to fall back to the terminal's native selection across borders/scrollbar
 - Git branch display per project + in-TUI branch picker with live filter, plus `:fetch` / `:pull --ff-only`
 - Active port/socket display (processes that LISTEN show their port)
@@ -211,11 +211,13 @@ Press `a` to attach to a running process. The terminal enters raw mode and all
 input goes directly to the child PTY. To return to `procs`:
 
 ```
-Press Ctrl-] twice (within 400ms)
+Press Esc twice (within 400ms)
 ```
 
-This mirrors the telnet detach convention. The detach sequence is
-`0x1d 0x1d` (`Ctrl-]` `Ctrl-]`).
+This matches the double-Esc exit gesture used in log-focus mode, so the same
+key works across the TUI. The detach sequence is `0x1b 0x1b` (`Esc` `Esc`).
+A lone `Esc` is forwarded to the child after the 400 ms window expires, which
+introduces a small latency for vim normal-mode and other Esc-driven UIs.
 
 **Paste:** use your terminal's native paste (Cmd-V on macOS, Ctrl-Shift-V or
 Shift-Insert on Linux). The bracketed-paste sequence is forwarded to the

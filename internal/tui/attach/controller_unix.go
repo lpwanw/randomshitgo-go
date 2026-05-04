@@ -17,7 +17,7 @@ import (
 const ioBufferSize = 4096
 
 // Controller manages the raw-mode PTY bridge for attach mode.
-// Run blocks until the user detaches (double Ctrl-]), the context is cancelled,
+// Run blocks until the user detaches (double Esc), the context is cancelled,
 // or the PTY EOF fires.
 type Controller struct {
 	escapeByte byte
@@ -25,7 +25,7 @@ type Controller struct {
 }
 
 // NewController returns a Controller with the given escape byte and timeout.
-// Use 0 for defaults (Ctrl-] and 400ms).
+// Use 0 for defaults (Esc and 400ms).
 func NewController(escapeByte byte, timeout time.Duration) *Controller {
 	if escapeByte == 0 {
 		escapeByte = DefaultEscapeByte

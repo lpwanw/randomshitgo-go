@@ -15,14 +15,14 @@ import (
 	uv "github.com/charmbracelet/ultraviolet"
 )
 
-// DetachTimeout is the window inside which the second Ctrl-] must arrive
-// for the detach handshake to fire. A single Ctrl-] beyond this window is
+// DetachTimeout is the window inside which the second Esc must arrive
+// for the detach handshake to fire. A single Esc beyond this window is
 // flushed to the PTY so the child sees it as a normal keypress.
 const DetachTimeout = 400 * time.Millisecond
 
-// rawCtrlCloseBracket is the raw byte for Ctrl-] that the detector
-// swallows on first press and replays on a non-handshake follow-up.
-const rawCtrlCloseBracket byte = 0x1d
+// rawEsc is the raw byte for Esc that the detector swallows on first
+// press and replays on a non-handshake follow-up.
+const rawEsc byte = 0x1b
 
 // Session owns one embedded-attach lifecycle: the vt emulator, the PTY
 // subscription, the detach detector, and the channels that surface async
@@ -133,7 +133,7 @@ func (s *Session) SendPaste(text string) error {
 }
 
 // SendBytes writes raw bytes straight to the PTY. Used by the routing
-// layer to flush swallowed Ctrl-] bytes when the detach handshake fails.
+// layer to flush swallowed Esc bytes when the detach handshake fails.
 func (s *Session) SendBytes(p []byte) error {
 	if len(p) == 0 {
 		return nil
@@ -207,7 +207,7 @@ func (s *Session) WatchErrCmd() tea.Cmd {
 }
 
 // DetachFlushTickCmd schedules a DetachFlushMsg after the detector
-// timeout so a single Ctrl-] eventually reaches the child.
+// timeout so a single Esc eventually reaches the child.
 func DetachFlushTickCmd() tea.Cmd {
 	return tea.Tick(DetachTimeout+10*time.Millisecond, func(time.Time) tea.Msg {
 		return DetachFlushMsg{}
@@ -232,13 +232,14 @@ func (s *Session) ErrCh() <-chan error { return s.writeErrCh }
 // Done exposes the session context's done channel for the same reason.
 func (s *Session) Done() <-chan struct{} { return s.ctx.Done() }
 
-// KeyDetach watches the Bubbletea key stream for the Ctrl-] Ctrl-]
-// detach handshake. The first Ctrl-] is swallowed and "armed"; if a
-// second arrives inside Timeout the caller exits embedded mode.
+// KeyDetach watches the Bubbletea key stream for the Esc Esc detach
+// handshake. The first Esc is swallowed and "armed"; if a second arrives
+// inside Timeout the caller exits embedded mode.
 //
 // If any other key arrives in the window (or Timeout fires) the
 // swallowed byte is flushed back so the child program sees it. This
-// preserves legitimate uses of Ctrl-] (e.g. readline `quote-meta`).
+// preserves legitimate uses of Esc (vim normal-mode entry, less, fzf)
+// at the cost of a Timeout-long latency on bare Esc.
 type KeyDetach struct {
 	Timeout time.Duration
 
@@ -254,7 +255,7 @@ type KeyDetach struct {
 //   - flush:    bytes the caller must Write to the PTY *before* handling
 //     the current key. Empty when nothing pending.
 func (d *KeyDetach) Feed(msg tea.KeyMsg) (consumed, detached bool, flush []byte) {
-	isBracket := msg.Type == tea.KeyCtrlCloseBracket
+	isEsc := msg.Type == tea.KeyEsc
 	now := time.Now()
 
 	// Window expired since arming → flush the saved byte and re-evaluate
@@ -262,15 +263,15 @@ func (d *KeyDetach) Feed(msg tea.KeyMsg) (consumed, detached bool, flush []byte)
 	if d.armed && !d.armedAt.IsZero() && now.Sub(d.armedAt) > d.Timeout {
 		f := d.flush
 		d.armed, d.flush, d.armedAt = false, nil, time.Time{}
-		if isBracket {
-			d.armed, d.armedAt, d.flush = true, now, []byte{rawCtrlCloseBracket}
+		if isEsc {
+			d.armed, d.armedAt, d.flush = true, now, []byte{rawEsc}
 			return true, false, f
 		}
 		return false, false, f
 	}
 
 	if d.armed {
-		if isBracket {
+		if isEsc {
 			d.armed, d.flush, d.armedAt = false, nil, time.Time{}
 			return true, true, nil
 		}
@@ -279,8 +280,8 @@ func (d *KeyDetach) Feed(msg tea.KeyMsg) (consumed, detached bool, flush []byte)
 		return false, false, f
 	}
 
-	if isBracket {
-		d.armed, d.armedAt, d.flush = true, now, []byte{rawCtrlCloseBracket}
+	if isEsc {
+		d.armed, d.armedAt, d.flush = true, now, []byte{rawEsc}
 		return true, false, nil
 	}
 	return false, false, nil
@@ -288,7 +289,7 @@ func (d *KeyDetach) Feed(msg tea.KeyMsg) (consumed, detached bool, flush []byte)
 
 // FlushIfExpired returns the swallowed bytes when the arm window has
 // elapsed and clears the detector. Used by the DetachFlushMsg tick so a
-// lone Ctrl-] doesn't sit forever invisible to the child.
+// lone Esc doesn't sit forever invisible to the child.
 func (d *KeyDetach) FlushIfExpired() []byte {
 	if !d.armed || d.armedAt.IsZero() {
 		return nil

@@ -221,48 +221,48 @@ func TestSession_WatchErrCmdSurfacesPTYError(t *testing.T) {
 func TestKeyDetach_HandshakeDetaches(t *testing.T) {
 	d := KeyDetach{Timeout: 100 * time.Millisecond}
 
-	consumed, detached, flush := d.Feed(tea.KeyMsg{Type: tea.KeyCtrlCloseBracket})
+	consumed, detached, flush := d.Feed(tea.KeyMsg{Type: tea.KeyEsc})
 	if !consumed || detached || len(flush) != 0 {
-		t.Fatalf("first ] = (%v,%v,%v); want (true,false,nil)", consumed, detached, flush)
+		t.Fatalf("first esc = (%v,%v,%v); want (true,false,nil)", consumed, detached, flush)
 	}
-	consumed, detached, flush = d.Feed(tea.KeyMsg{Type: tea.KeyCtrlCloseBracket})
+	consumed, detached, flush = d.Feed(tea.KeyMsg{Type: tea.KeyEsc})
 	if !consumed || !detached || len(flush) != 0 {
-		t.Fatalf("second ] = (%v,%v,%v); want (true,true,nil)", consumed, detached, flush)
+		t.Fatalf("second esc = (%v,%v,%v); want (true,true,nil)", consumed, detached, flush)
 	}
 }
 
-func TestKeyDetach_NonBracketFollowupFlushes(t *testing.T) {
+func TestKeyDetach_NonEscFollowupFlushes(t *testing.T) {
 	d := KeyDetach{Timeout: 100 * time.Millisecond}
 
-	consumed, _, _ := d.Feed(tea.KeyMsg{Type: tea.KeyCtrlCloseBracket})
+	consumed, _, _ := d.Feed(tea.KeyMsg{Type: tea.KeyEsc})
 	if !consumed {
-		t.Fatal("first ] not consumed")
+		t.Fatal("first esc not consumed")
 	}
 	consumed, detached, flush := d.Feed(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	if consumed || detached {
 		t.Fatalf("got consumed=%v detached=%v; want both false", consumed, detached)
 	}
-	if len(flush) != 1 || flush[0] != rawCtrlCloseBracket {
-		t.Errorf("flush = %x; want [1d]", flush)
+	if len(flush) != 1 || flush[0] != rawEsc {
+		t.Errorf("flush = %x; want [1b]", flush)
 	}
 	if d.Armed() {
 		t.Error("detector still armed after flush")
 	}
 }
 
-func TestKeyDetach_TimeoutThenBracketRearms(t *testing.T) {
+func TestKeyDetach_TimeoutThenEscRearms(t *testing.T) {
 	d := KeyDetach{Timeout: 10 * time.Millisecond}
-	_, _, _ = d.Feed(tea.KeyMsg{Type: tea.KeyCtrlCloseBracket})
+	_, _, _ = d.Feed(tea.KeyMsg{Type: tea.KeyEsc})
 	time.Sleep(20 * time.Millisecond)
-	consumed, detached, flush := d.Feed(tea.KeyMsg{Type: tea.KeyCtrlCloseBracket})
+	consumed, detached, flush := d.Feed(tea.KeyMsg{Type: tea.KeyEsc})
 	if !consumed {
-		t.Fatal("re-arm: second ] should be consumed")
+		t.Fatal("re-arm: second esc should be consumed")
 	}
 	if detached {
 		t.Fatal("re-arm: should NOT detach across timeout boundary")
 	}
-	if len(flush) != 1 || flush[0] != rawCtrlCloseBracket {
-		t.Errorf("flush = %x; want [1d]", flush)
+	if len(flush) != 1 || flush[0] != rawEsc {
+		t.Errorf("flush = %x; want [1b]", flush)
 	}
 	if !d.Armed() {
 		t.Fatal("re-arm: detector should be armed again")
@@ -271,15 +271,15 @@ func TestKeyDetach_TimeoutThenBracketRearms(t *testing.T) {
 
 func TestKeyDetach_FlushIfExpired(t *testing.T) {
 	d := KeyDetach{Timeout: 5 * time.Millisecond}
-	_, _, _ = d.Feed(tea.KeyMsg{Type: tea.KeyCtrlCloseBracket})
+	_, _, _ = d.Feed(tea.KeyMsg{Type: tea.KeyEsc})
 
 	if got := d.FlushIfExpired(); got != nil {
 		t.Errorf("immediate flush = %x; want nil", got)
 	}
 	time.Sleep(15 * time.Millisecond)
 	got := d.FlushIfExpired()
-	if len(got) != 1 || got[0] != rawCtrlCloseBracket {
-		t.Errorf("expired flush = %x; want [1d]", got)
+	if len(got) != 1 || got[0] != rawEsc {
+		t.Errorf("expired flush = %x; want [1b]", got)
 	}
 	if d.Armed() {
 		t.Error("still armed after expired flush")
