@@ -32,9 +32,9 @@ Make sure that directory is on your `PATH`.
 ```sh
 git clone https://github.com/lpwanw/randomshitgo-go
 cd randomshitgo-go
-make install                  # default PREFIX=/usr/local → /usr/local/bin/procs
-# may need sudo for /usr/local; or install to a user-writable prefix:
-make install PREFIX=$HOME/.local
+make install                  # default PREFIX=$HOME/.local → ~/.local/bin/procs (no sudo)
+# system-wide install (requires sudo, shared with other users):
+sudo make install PREFIX=/usr/local
 ```
 
 ### Direct binary (macOS/Linux)

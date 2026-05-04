@@ -1,4 +1,4 @@
-PREFIX  ?= /usr/local
+PREFIX  ?= $(HOME)/.local
 BIN     ?= procs
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.1.0-dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -38,6 +38,7 @@ install: build
 	install -d $(PREFIX)/bin
 	install -m 0755 $(BIN) $(PREFIX)/bin/$(BIN)
 	@echo "installed to $(PREFIX)/bin/$(BIN)"
+	@case ":$$PATH:" in *":$(PREFIX)/bin:"*) ;; *) echo "note: $(PREFIX)/bin not on PATH — add: export PATH=\"$(PREFIX)/bin:\$$PATH\"";; esac
 
 uninstall:
 	rm -f $(PREFIX)/bin/$(BIN)
