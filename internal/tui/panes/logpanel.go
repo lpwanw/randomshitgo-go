@@ -27,8 +27,8 @@ var logKeys = logPanelKeyMap{
 	PageDown: key.NewBinding(key.WithKeys("pgdown", "ctrl+f")),
 	Top:      key.NewBinding(key.WithKeys("g")),
 	Bottom:   key.NewBinding(key.WithKeys("G")),
-	LineUp:   key.NewBinding(key.WithKeys("K")),
-	LineDown: key.NewBinding(key.WithKeys("J")),
+	LineUp:   key.NewBinding(key.WithKeys("K", "up")),
+	LineDown: key.NewBinding(key.WithKeys("J", "down")),
 }
 
 var stylePanelBorder = lipgloss.NewStyle().

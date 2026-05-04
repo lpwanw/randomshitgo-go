@@ -50,12 +50,12 @@ type KeyMap struct {
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		Up: key.NewBinding(
-			key.WithKeys("k", "up"),
-			key.WithHelp("k/↑", "prev process"),
+			key.WithKeys("k"),
+			key.WithHelp("k", "prev process"),
 		),
 		Down: key.NewBinding(
-			key.WithKeys("j", "down"),
-			key.WithHelp("j/↓", "next process"),
+			key.WithKeys("j"),
+			key.WithHelp("j", "next process"),
 		),
 		Start: key.NewBinding(
 			key.WithKeys("s"),

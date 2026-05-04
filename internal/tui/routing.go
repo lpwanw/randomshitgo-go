@@ -243,6 +243,13 @@ func routeNormal(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		cmd := m.logPanel.Update(msg)
 		return m, cmd
 
+	// Arrow up/down → scroll log panel by one line. Mirrors wheel scroll
+	// for terminals/tmux that surface scroll wheel as arrow KeyMsgs
+	// rather than MouseMsg events. Project nav stays on j/k.
+	case msg.String() == "up", msg.String() == "down":
+		cmd := m.logPanel.Update(msg)
+		return m, cmd
+
 	case key.Matches(msg, m.keys.CopyEnter):
 		m.mode = ModeLogFocus
 		m.logPanel.SetCopyMode(true)
