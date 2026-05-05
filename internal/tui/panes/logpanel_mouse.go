@@ -102,6 +102,10 @@ func (lp *LogPanel) mouseToCursor(absX, absY int) (cursor, bool) {
 		return cursor{line: len(lp.rawLines) - 1, col: 0}, true
 	}
 	rawLine := lp.rowToRaw[renderedRow]
+	if rawLine < 0 || rawLine >= len(lp.rawLines) {
+		// rowToRaw stale vs rawLines (e.g. buffer cleared mid-drag).
+		return cursor{}, false
+	}
 	col := lp.colForRenderedRow(renderedRow, contentX)
 	return cursor{line: rawLine, col: col}, true
 }
@@ -169,6 +173,9 @@ func (lp *LogPanel) clampToPane(absX, absY int) cursor {
 			return lp.drag.anchorAt
 		}
 		raw := lp.rowToRaw[botRow]
+		if raw < 0 || raw >= len(lp.rawLines) {
+			return lp.drag.anchorAt
+		}
 		stripped := log.StripANSI(lp.rawLines[raw])
 		return cursor{line: raw, col: maxInt(0, len(stripped)-1)}
 	}
@@ -179,6 +186,9 @@ func (lp *LogPanel) clampToPane(absX, absY int) cursor {
 		return lp.drag.anchorAt
 	}
 	raw := lp.rowToRaw[renderedRow]
+	if raw < 0 || raw >= len(lp.rawLines) {
+		return lp.drag.anchorAt
+	}
 	col := 0
 	if absX-lp.xOrigin >= lp.width-1 {
 		stripped := log.StripANSI(lp.rawLines[raw])
@@ -196,6 +206,9 @@ func (lp *LogPanel) colForRenderedRow(renderedRow, contentX int) int {
 		return 0
 	}
 	raw := lp.rowToRaw[renderedRow]
+	if raw < 0 || raw >= len(lp.rawLines) {
+		return 0
+	}
 	stripped := log.StripANSI(lp.rawLines[raw])
 	if len(stripped) == 0 {
 		return 0
