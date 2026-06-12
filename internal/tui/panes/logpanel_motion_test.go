@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -133,6 +134,36 @@ func TestCopy_EnsureCursorVisibleScrolls(t *testing.T) {
 	lp.HandleCopyKey(keyMsg("g"))
 	if lp.vp.YOffset != 0 {
 		t.Errorf("after gg, YOffset should be 0, got %d", lp.vp.YOffset)
+	}
+}
+
+func TestCopy_EnsureCursorVisibleWithWrap(t *testing.T) {
+	// Long lines so each raw line wraps into several visual rows — raw index and
+	// visual-row index diverge, which used to push the G cursor below the window.
+	lines := make([]string, 100)
+	long := strings.Repeat("x", 200)
+	for i := range lines {
+		lines[i] = long
+	}
+	lp := newCopyPanel(t, lines)
+	lp.HandleCopyKey(keyMsg("G"))
+
+	if line, _ := lp.Cursor(); line != 99 {
+		t.Fatalf("after G, cursor line want 99, got %d", line)
+	}
+	// The cursor's visual row (first row of raw line 99) must sit in the window.
+	first := -1
+	for k, ri := range lp.rowToRaw {
+		if ri == 99 {
+			first = k
+			break
+		}
+	}
+	if first < 0 {
+		t.Fatalf("raw line 99 not present in rowToRaw")
+	}
+	if first < lp.vp.YOffset || first >= lp.vp.YOffset+lp.vp.Height {
+		t.Errorf("G cursor row %d off-screen; YOffset=%d Height=%d", first, lp.vp.YOffset, lp.vp.Height)
 	}
 }
 

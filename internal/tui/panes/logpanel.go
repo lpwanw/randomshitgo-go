@@ -189,8 +189,13 @@ func (lp *LogPanel) SetCopyMode(on bool) {
 	if on {
 		lp.sticky = false
 		// Start the cursor at the top of the currently visible window so users
-		// don't need to scroll to find it.
-		lp.cur = cursor{line: minInt(lp.vp.YOffset, maxInt(0, len(lp.rawLines)-1))}
+		// don't need to scroll to find it. YOffset is a visual-row index; map it
+		// back to a rawLines index so wrapped lines don't misplace the cursor.
+		top := lp.vp.YOffset
+		if top >= 0 && top < len(lp.rowToRaw) {
+			top = lp.rowToRaw[top]
+		}
+		lp.cur = cursor{line: minInt(top, maxInt(0, len(lp.rawLines)-1))}
 		lp.clampCol()
 	} else {
 		lp.clearTransient()
@@ -437,8 +442,8 @@ func (lp *LogPanel) JumpNextMatchCursor() (ok, wrapped bool) {
 	if ok && lp.inCopy && lp.matchCur >= 0 && lp.matchCur < len(lp.matchLines) {
 		lp.cur.line = lp.matchLines[lp.matchCur]
 		lp.cur.col = 0
-		lp.ensureCursorVisible()
 		lp.paintMatches()
+		lp.ensureCursorVisible()
 	}
 	return
 }
@@ -449,8 +454,8 @@ func (lp *LogPanel) JumpPrevMatchCursor() (ok, wrapped bool) {
 	if ok && lp.inCopy && lp.matchCur >= 0 && lp.matchCur < len(lp.matchLines) {
 		lp.cur.line = lp.matchLines[lp.matchCur]
 		lp.cur.col = 0
-		lp.ensureCursorVisible()
 		lp.paintMatches()
+		lp.ensureCursorVisible()
 	}
 	return
 }

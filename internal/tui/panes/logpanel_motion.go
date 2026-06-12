@@ -213,15 +213,45 @@ func (lp *LogPanel) clampCol() {
 	}
 }
 
-// ensureCursorVisible scrolls the viewport so cursor.line sits in the visible
-// window. No-op when already in range.
+// cursorRows returns the first and last visual-row indices that cursor.line
+// occupies. With wrap on a single raw line spans several rows; the viewport
+// scrolls in visual-row space, so motion math must translate through rowToRaw.
+// Falls back to identity (correct when wrap is off or the mapping is empty).
+func (lp *LogPanel) cursorRows() (first, last int) {
+	first, last = -1, -1
+	for k, ri := range lp.rowToRaw {
+		if ri == lp.cur.line {
+			if first == -1 {
+				first = k
+			}
+			last = k
+		} else if ri > lp.cur.line {
+			break // rowToRaw is monotonic non-decreasing
+		}
+	}
+	if first == -1 {
+		return lp.cur.line, lp.cur.line
+	}
+	return
+}
+
+// ensureCursorVisible scrolls the viewport so the cursor's visual row sits in
+// the visible window. No-op when already in range. Works in visual-row space
+// (via cursorRows) so wrapped lines don't push the cursor off-screen.
 func (lp *LogPanel) ensureCursorVisible() {
-	if lp.cur.line < lp.vp.YOffset {
-		lp.vp.SetYOffset(lp.cur.line)
+	first, last := lp.cursorRows()
+	if first < lp.vp.YOffset {
+		lp.vp.SetYOffset(first)
 		return
 	}
-	if lp.cur.line >= lp.vp.YOffset+lp.vp.Height {
-		lp.vp.SetYOffset(lp.cur.line - lp.vp.Height + 1)
+	if last >= lp.vp.YOffset+lp.vp.Height {
+		// Reveal the line's last visual row, but never scroll so far that its
+		// first row (where a col-0 cursor sits) leaves the top of the window.
+		off := last - lp.vp.Height + 1
+		if off > first {
+			off = first
+		}
+		lp.vp.SetYOffset(off)
 	}
 }
 
@@ -311,8 +341,8 @@ func (lp *LogPanel) applyRange(r motionRange) tea.Cmd {
 	}
 	lp.cur = r.end
 	lp.clampCol()
+	lp.paintMatches() // rebuild rowToRaw before scrolling so wrap math is fresh
 	lp.ensureCursorVisible()
-	lp.paintMatches()
 	lp.clearTransient()
 	return nil
 }
