@@ -75,6 +75,8 @@ func (r *Registry) WriteRaw(id string, b []byte) {
 	e := r.Get(id)
 	lines := e.line.Feed(b)
 	for _, l := range lines {
+		// Decode once at ingest; every later repaint reads the cached string.
+		l.Rendered = log.DecodeForRender(l.Bytes)
 		e.Ring.Push(l)
 		if e.Rot != nil {
 			stripped := log.StripANSI(string(l.Bytes))

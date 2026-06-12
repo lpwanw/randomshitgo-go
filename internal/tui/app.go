@@ -367,7 +367,13 @@ func (m *Model) refreshLogPanel() {
 	lines := entry.Ring.Snapshot()
 	rendered := make([]string, len(lines))
 	for i, l := range lines {
-		rendered[i] = log.DecodeForRender(l.Bytes)
+		// Rendered is cached at ingest (registry.WriteRaw); decode here only
+		// for lines pushed through other paths (e.g. tests).
+		if l.Rendered == "" && len(l.Bytes) > 0 {
+			rendered[i] = log.DecodeForRender(l.Bytes)
+			continue
+		}
+		rendered[i] = l.Rendered
 	}
 	m.logPanel.SetLines(rendered)
 }
