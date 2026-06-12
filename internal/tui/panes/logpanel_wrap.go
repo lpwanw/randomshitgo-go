@@ -15,7 +15,27 @@ func wrapLine(line string, width int) []string {
 	if width <= 0 {
 		return []string{line}
 	}
-	if visibleColumns(line) <= width {
+	// Fast path: no escape sequences at all — visible width is just len(line),
+	// so chunk by byte offset without any SGR bookkeeping.
+	if !strings.ContainsRune(line, 0x1b) {
+		if len(line) <= width {
+			return []string{line}
+		}
+		out := make([]string, 0, (len(line)+width-1)/width)
+		for i := 0; i < len(line); i += width {
+			end := i + width
+			if end > len(line) {
+				end = len(line)
+			}
+			out = append(out, line[i:end])
+		}
+		return out
+	}
+
+	// Locate every escape sequence up front so the walk below is linear —
+	// probing the regex per byte would rescan the suffix each time.
+	seqs := ansiSeqRe.FindAllStringIndex(line, -1)
+	if visibleColumnsWithSeqs(line, seqs) <= width {
 		return []string{line}
 	}
 
@@ -25,6 +45,7 @@ func wrapLine(line string, width int) []string {
 	visible := 0
 	i := 0
 	n := len(line)
+	seqIdx := 0
 
 	flushRow := func() {
 		if row.Len() == 0 {
@@ -46,9 +67,8 @@ func wrapLine(line string, width int) []string {
 	}
 
 	for i < n {
-		loc := ansiSeqRe.FindStringIndex(line[i:])
-		if loc != nil && loc[0] == 0 {
-			seq := line[i : i+loc[1]]
+		if seqIdx < len(seqs) && seqs[seqIdx][0] == i {
+			seq := line[i:seqs[seqIdx][1]]
 			row.WriteString(seq)
 			// Track only CSI "m" sequences (SGR) for re-emit. The reset byte
 			// `\x1b[0m` or `\x1b[m` clears state; any other SGR accumulates.
@@ -59,7 +79,8 @@ func wrapLine(line string, width int) []string {
 					activeSGR.WriteString(seq)
 				}
 			}
-			i += loc[1]
+			i = seqs[seqIdx][1]
+			seqIdx++
 			continue
 		}
 		// Visible byte.
@@ -80,16 +101,18 @@ func wrapLine(line string, width int) []string {
 // visibleColumns returns the number of visible bytes in s — i.e. len(s) minus
 // any ANSI escape-sequence bytes.
 func visibleColumns(s string) int {
-	cols := 0
-	i := 0
-	for i < len(s) {
-		loc := ansiSeqRe.FindStringIndex(s[i:])
-		if loc != nil && loc[0] == 0 {
-			i += loc[1]
-			continue
-		}
-		cols++
-		i++
+	if !strings.ContainsRune(s, 0x1b) {
+		return len(s)
+	}
+	return visibleColumnsWithSeqs(s, ansiSeqRe.FindAllStringIndex(s, -1))
+}
+
+// visibleColumnsWithSeqs is visibleColumns with the escape-sequence locations
+// already computed, so callers that need both can run the regex once.
+func visibleColumnsWithSeqs(s string, seqs [][]int) int {
+	cols := len(s)
+	for _, loc := range seqs {
+		cols -= loc[1] - loc[0]
 	}
 	return cols
 }

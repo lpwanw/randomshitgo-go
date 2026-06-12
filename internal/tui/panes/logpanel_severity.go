@@ -2,6 +2,7 @@ package panes
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/lpwanw/randomshitgo-go/internal/log"
 )
@@ -29,11 +30,27 @@ var severityFG = map[string]string{
 // filter highlight) survive.
 const severityClose = "\x1b[39m"
 
+// severityPrefilter is the minimal substring set covering every token in
+// severityRe ("ERR" prefixes ERROR, "WARN" prefixes WARNING). A line that
+// contains none of these cannot match the regex, so the per-line repaint
+// pass can skip the regex engine for the common no-severity case.
+var severityPrefilter = []string{"ERR", "FATAL", "WARN", "INFO", "DEBUG", "TRACE"}
+
 // applySeverity wraps `line` with a severity-coloured fg when the stripped
 // content contains a known level token. Returns the line unchanged when no
 // match is found.
 func applySeverity(line string) string {
 	stripped := log.StripANSI(line)
+	hit := false
+	for _, tok := range severityPrefilter {
+		if strings.Contains(stripped, tok) {
+			hit = true
+			break
+		}
+	}
+	if !hit {
+		return line
+	}
 	m := severityRe.FindStringSubmatchIndex(stripped)
 	if m == nil {
 		return line

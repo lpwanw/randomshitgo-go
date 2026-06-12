@@ -652,10 +652,13 @@ func mapStrippedToRendered(rendered string) []int {
 	out := make([]int, len(stripped)+1)
 	si := 0
 	ri := 0
+	// All escape sequences located in one regex pass; the walk is then linear.
+	seqs := ansiSeqRe.FindAllStringIndex(rendered, -1)
+	seqIdx := 0
 	for ri < len(rendered) {
-		loc := ansiSeqRe.FindStringIndex(rendered[ri:])
-		if loc != nil && loc[0] == 0 {
-			ri += loc[1]
+		if seqIdx < len(seqs) && seqs[seqIdx][0] == ri {
+			ri = seqs[seqIdx][1]
+			seqIdx++
 			continue
 		}
 		out[si] = ri
@@ -714,13 +717,16 @@ func highlightLine(rendered string, rx *regexp.Regexp, current bool) string {
 	}
 
 	// Build lookup: rendered byte offset for each stripped byte offset 0..len.
+	// Escape sequences located in one regex pass; the walk is then linear.
 	renderedOfStripped := make([]int, len(stripped)+1)
 	si := 0
 	ri := 0
+	seqs := ansiSeqRe.FindAllStringIndex(rendered, -1)
+	seqIdx := 0
 	for ri < len(rendered) {
-		loc := ansiSeqRe.FindStringIndex(rendered[ri:])
-		if loc != nil && loc[0] == 0 {
-			ri += loc[1]
+		if seqIdx < len(seqs) && seqs[seqIdx][0] == ri {
+			ri = seqs[seqIdx][1]
+			seqIdx++
 			continue
 		}
 		renderedOfStripped[si] = ri
