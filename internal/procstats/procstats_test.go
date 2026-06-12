@@ -40,6 +40,27 @@ func TestSampler_BogusPIDReturnsError(t *testing.T) {
 	}
 }
 
+func TestSampler_SamplePrunesUnseenHandles(t *testing.T) {
+	s := New()
+	// Simulate a stale descendant handle left over from an earlier walk.
+	s.mu.Lock()
+	s.handles[999999] = nil
+	s.mu.Unlock()
+	if _, err := s.Sample(os.Getpid()); err != nil {
+		t.Fatalf("sample: %v", err)
+	}
+	s.mu.Lock()
+	_, stale := s.handles[999999]
+	_, self := s.handles[int32(os.Getpid())]
+	s.mu.Unlock()
+	if stale {
+		t.Error("handle for PID not seen in walk should be pruned")
+	}
+	if !self {
+		t.Error("sampled root handle should survive pruning")
+	}
+}
+
 func TestSampler_ForgetDropsCache(t *testing.T) {
 	s := New()
 	if _, err := s.Sample(os.Getpid()); err != nil {

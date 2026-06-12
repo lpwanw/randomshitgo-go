@@ -36,6 +36,11 @@ func New() *Sampler {
 // across root and all descendants. Processes that exit mid-walk are skipped
 // silently. Returns an error only when the root PID cannot be opened —
 // caller should treat that as "no stats yet" rather than a UI error.
+//
+// Handles cached for PIDs not visited by this walk are evicted afterwards —
+// short-lived descendants (compilers, test runners) would otherwise pile up
+// in the cache for the lifetime of the session. Evicted PIDs that reappear
+// in a later walk simply rebuild their CPU% baseline on first sample.
 func (s *Sampler) Sample(pid int) (Stats, error) {
 	if pid <= 0 {
 		return Stats{}, fmt.Errorf("procstats: invalid pid %d", pid)
@@ -45,6 +50,7 @@ func (s *Sampler) Sample(pid int) (Stats, error) {
 		return Stats{}, err
 	}
 	var total Stats
+	seen := map[int32]struct{}{int32(pid): {}}
 	s.accumulate(root, &total)
 	// Recursive children — missing children between the call and the walk are
 	// possible on a busy system; gopsutil returns them as non-nil with errors
@@ -52,10 +58,22 @@ func (s *Sampler) Sample(pid int) (Stats, error) {
 	kids, err := root.Children()
 	if err == nil {
 		for _, k := range kids {
-			s.accumulateTree(k, &total)
+			s.accumulateTree(k, &total, seen)
 		}
 	}
+	s.pruneExcept(seen)
 	return total, nil
+}
+
+// pruneExcept drops every cached handle whose PID is not in seen.
+func (s *Sampler) pruneExcept(seen map[int32]struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for pid := range s.handles {
+		if _, ok := seen[pid]; !ok {
+			delete(s.handles, pid)
+		}
+	}
 }
 
 // Forget drops any cached handle for pid. Call this when a child restarts
@@ -101,18 +119,19 @@ func (s *Sampler) accumulate(p *process.Process, out *Stats) {
 // gopsutil v3 API only exposes non-recursive Children(); our tree walks
 // depth-first and reuses handleFor so each node's CPU% delta is measured
 // against the last sample.
-func (s *Sampler) accumulateTree(p *process.Process, out *Stats) {
+func (s *Sampler) accumulateTree(p *process.Process, out *Stats, seen map[int32]struct{}) {
 	// Re-acquire handle via cache so CPUPercent deltas are stable.
 	handle, err := s.handleFor(p.Pid)
 	if err != nil {
 		return
 	}
+	seen[p.Pid] = struct{}{}
 	s.accumulate(handle, out)
 	kids, err := handle.Children()
 	if err != nil {
 		return
 	}
 	for _, k := range kids {
-		s.accumulateTree(k, out)
+		s.accumulateTree(k, out, seen)
 	}
 }
