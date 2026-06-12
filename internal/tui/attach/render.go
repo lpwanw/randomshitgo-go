@@ -18,6 +18,15 @@ import (
 // Output has h-1 newlines (no trailing newline) so it composes directly
 // with lipgloss.JoinVertical / JoinHorizontal.
 func Render(t *VTTerm, w, h int) string {
+	return RenderWithSelection(t, w, h, Selection{})
+}
+
+// RenderWithSelection is Render plus a reverse-video highlight over the cells
+// covered by sel. An inactive selection renders identically to Render. Where
+// the cursor cell and the selection overlap the two reverse toggles cancel,
+// leaving that single cell un-inverted — acceptable since it is at most one
+// cell on a selection edge.
+func RenderWithSelection(t *VTTerm, w, h int, sel Selection) string {
 	if w <= 0 || h <= 0 || t == nil {
 		return ""
 	}
@@ -36,7 +45,7 @@ func Render(t *VTTerm, w, h int) string {
 	sb.Grow(w * h * 2)
 
 	for y := 0; y < ch; y++ {
-		written := renderLine(&sb, t, y, cw, cur.X, y == cur.Y)
+		written := renderLine(&sb, t, y, cw, cur.X, y == cur.Y, sel)
 		if written < w {
 			sb.WriteString(strings.Repeat(" ", w-written))
 		}
@@ -54,8 +63,9 @@ func Render(t *VTTerm, w, h int) string {
 }
 
 // renderLine writes one row. Returns the number of display columns
-// actually emitted (≤ w) so the caller can right-pad.
-func renderLine(sb *strings.Builder, t *VTTerm, y, w, curX int, hasCursor bool) int {
+// actually emitted (≤ w) so the caller can right-pad. Cells covered by sel
+// get a reverse-video toggle folded into their style before batching.
+func renderLine(sb *strings.Builder, t *VTTerm, y, w, curX int, hasCursor bool, sel Selection) int {
 	var run strings.Builder
 	var runStyle uv.Style
 	runActive := false
@@ -94,6 +104,13 @@ func renderLine(sb *strings.Builder, t *VTTerm, y, w, curX int, hasCursor bool) 
 		if width == 2 && x+1 >= w {
 			content = " "
 			width = 1
+		}
+
+		// Fold selection highlight into the style so run-batching keeps a
+		// selected span as one styled run. Applied before the cursor branch so
+		// an overlapping cursor toggle cancels it back to plain.
+		if sel.Contains(x, y) {
+			st.Attrs ^= uv.AttrReverse
 		}
 
 		isCursor := hasCursor && x == curX

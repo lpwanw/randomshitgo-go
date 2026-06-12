@@ -116,6 +116,15 @@ func (s *Session) Detector() *KeyDetach { return &s.detector }
 // take effect; the drain goroutine writes the encoded bytes to the PTY.
 func (s *Session) SendKey(k uv.KeyPressEvent) { s.term.SendKey(k) }
 
+// MouseTracking reports whether the child has a mouse-tracking mode active.
+// The routing layer forwards mouse events to the child when true and runs a
+// local drag-select when false.
+func (s *Session) MouseTracking() bool { return s.term.MouseTracking() }
+
+// SendMouse forwards a mouse event to the child via the emulator. No-ops in
+// the emulator when no mouse mode is active.
+func (s *Session) SendMouse(ev uv.MouseEvent) { s.term.SendMouse(ev) }
+
 // SendPaste forwards pasted text to the child PTY via the emulator's
 // Paste path so DEC bracketed-paste mode (?2004) is honoured when the
 // child enabled it. Newlines are normalised to CR — terminal apps treat

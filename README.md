@@ -12,7 +12,7 @@ so you can type directly into any child process.
 - Per-project log panes with scroll, filter, and rotation
 - Named groups — boot the whole stack with one key
 - Auto-restart on failure with configurable exponential backoff
-- Attach mode: raw PTY bridge with `Esc Esc` to detach; OS-native paste (Cmd-V / Ctrl-Shift-V / Shift-Insert) is forwarded to the child as bracketed paste when the child enabled mode 2004
+- Attach mode: raw PTY bridge with `Esc Esc` to detach; OS-native paste (Cmd-V / Ctrl-Shift-V / Shift-Insert) is forwarded to the child as bracketed paste when the child enabled mode 2004. Mouse drag inside the attach pane selects → release auto-copies to the system clipboard; when the attached child enables its own mouse tracking (vim, htop, lazygit, `less -R`) the mouse is instead forwarded to it (tmux-style)
 - Mouse drag-select on the log pane → release auto-copies to system clipboard. Wheel still scrolls. Hold Option (macOS Terminal/iTerm) or Shift (most Linux terminals) to fall back to the terminal's native selection across borders/scrollbar
 - Git branch display per project + in-TUI branch picker with live filter, plus `:fetch` / `:pull --ff-only`
 - Active port/socket display (processes that LISTEN show their port)

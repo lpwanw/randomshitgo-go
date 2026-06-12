@@ -70,6 +70,13 @@ type Model struct {
 	// View() swaps the log panel for the vt grid and routing forwards
 	// keystrokes into the PTY.
 	attach *attach.Session
+
+	// attachSel is the in-progress mouse drag-selection over the attach pane.
+	// Only meaningful while attach != nil and the child has no mouse mode.
+	attachSel attach.Selection
+	// attachClip is the clipboard writer for attach-pane yanks (tests inject a
+	// fake; nil falls back to the system clipboard).
+	attachClip attachClipboard
 }
 
 // gitInfoCache stores git info for a project.
@@ -221,7 +228,7 @@ func (m Model) View() string {
 
 	rightPane := m.logPanel.View()
 	if m.mode == ModeEmbeddedAttach && m.attach != nil {
-		rightPane = attach.Render(m.attach.Term(), logW, contentH)
+		rightPane = attach.RenderWithSelection(m.attach.Term(), logW, contentH, m.attachSel)
 	}
 	main := lipgloss.JoinHorizontal(lipgloss.Top,
 		m.sidebar.View(),

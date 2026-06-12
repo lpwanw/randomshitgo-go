@@ -28,9 +28,13 @@ func handleMsg(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		return routeKey(m, msg)
 
 	case tea.MouseMsg:
-		// In embedded-attach mode the log panel is replaced by the vt
-		// render; mouse goes nowhere (PTY mouse forwarding TBD).
-		if m.mode == ModeEmbeddedAttach || m.mode == ModeAttach {
+		// Embedded attach: forward to the child when it tracks the mouse,
+		// else drag-select+copy on the vt grid (see routeEmbeddedAttachMouse).
+		if m.mode == ModeEmbeddedAttach {
+			return routeEmbeddedAttachMouse(m, msg)
+		}
+		// Legacy fullscreen attach has no in-pane vt grid; drop mouse.
+		if m.mode == ModeAttach {
 			return m, nil
 		}
 		cmd := m.logPanel.Update(msg)
