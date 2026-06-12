@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lpwanw/randomshitgo-go/internal/log"
@@ -70,7 +69,7 @@ var ansiSeqRe = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07
 // viewport can be jumped to each match via JumpNextMatch / JumpPrevMatch
 // (vim-style `n` / `N`).
 type LogPanel struct {
-	vp         viewport.Model
+	vp         window
 	filter     *regexp.Regexp
 	rawLines   []string // rendered lines (DecodeForRender applied)
 	sticky     bool
@@ -115,10 +114,8 @@ type mouseDrag struct {
 // rendered in View (width-2 for border, -1 more for the scrollbar column).
 func NewLogPanel(width, height int) LogPanel {
 	innerH := max(1, height-2)
-	vp := viewport.New(max(1, width-3), innerH)
-	vp.MouseWheelEnabled = true
 	return LogPanel{
-		vp:         vp,
+		vp:         newWindow(max(1, width-3), innerH),
 		sticky:     true,
 		width:      width,
 		height:     height,
@@ -509,7 +506,7 @@ func (lp *LogPanel) renderContent() {
 	lp.matchCur = -1
 
 	if len(lp.rawLines) == 0 {
-		lp.vp.SetContent("")
+		lp.vp.SetRows(nil)
 		return
 	}
 
@@ -528,7 +525,7 @@ func (lp *LogPanel) renderContent() {
 // matchCur — the focused match gets the distinct hlCur* style.
 func (lp *LogPanel) paintMatches() {
 	if len(lp.rawLines) == 0 {
-		lp.vp.SetContent("")
+		lp.vp.SetRows(nil)
 		return
 	}
 	currentLine := -1
@@ -617,7 +614,7 @@ func (lp *LogPanel) paintMatches() {
 			lp.rowFirst[k] = r.first
 		}
 	}
-	lp.vp.SetContent(strings.Join(flat, "\n"))
+	lp.vp.SetRows(flat)
 }
 
 // overlayCursor wraps one cell at the cursor's stripped column with

@@ -69,6 +69,19 @@ func BenchmarkSetLines(b *testing.B) {
 	}
 }
 
+// BenchmarkLogPanelView measures the per-frame render: invoked on every
+// Bubble Tea update, so it must stay O(visible window), not O(buffer).
+func BenchmarkLogPanelView(b *testing.B) {
+	lines := benchLines(2000)
+	lp := NewLogPanel(120, 40)
+	lp.SetLines(lines)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		lp.View()
+	}
+}
+
 // BenchmarkSetLinesFiltered adds an active filter so the match-index +
 // highlight path is exercised too.
 func BenchmarkSetLinesFiltered(b *testing.B) {

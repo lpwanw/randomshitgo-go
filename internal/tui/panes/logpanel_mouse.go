@@ -74,8 +74,7 @@ func (lp *LogPanel) handleMouse(msg tea.MouseMsg) tea.Cmd {
 // pre-existing handler (sticky disengages when scrolling away from
 // bottom).
 func (lp *LogPanel) scrollMouse(msg tea.MouseMsg) tea.Cmd {
-	var cmd tea.Cmd
-	lp.vp, cmd = lp.vp.Update(msg)
+	cmd := lp.vp.Update(msg)
 	if !lp.vp.AtBottom() {
 		lp.sticky = false
 	}
