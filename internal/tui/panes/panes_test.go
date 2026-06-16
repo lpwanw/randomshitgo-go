@@ -654,27 +654,3 @@ func TestStatusBar_View_WithGit(t *testing.T) {
 		t.Errorf("status bar should contain git branch, got: %q", view)
 	}
 }
-
-// TestLogPanel_RenderTailShowsNewestLines guards the embedded-attach header:
-// shrinking the panel via RenderTail must snap a sticky viewport to the newest
-// lines, not render a stale mid-buffer slice left over from the taller page.
-func TestLogPanel_RenderTailShowsNewestLines(t *testing.T) {
-	lp := NewLogPanel(80, 42) // inner height 40
-	lines := make([]string, 100)
-	for i := range lines {
-		lines[i] = fmt.Sprintf("line-%03d", i)
-	}
-	lp.SetLines(lines) // sticky → bottom at full height
-
-	out := lp.RenderTail(80, 22) // inner height 20 → newest 20 lines
-
-	if !strings.Contains(out, "line-099") {
-		t.Errorf("tail must contain newest line-099; got:\n%s", out)
-	}
-	if !strings.Contains(out, "line-080") {
-		t.Errorf("tail must contain line-080 (top of last 20); got:\n%s", out)
-	}
-	if strings.Contains(out, "line-060") {
-		t.Error("tail rendered a stale mid-buffer slice (line-060) instead of the live bottom")
-	}
-}

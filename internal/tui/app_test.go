@@ -418,30 +418,3 @@ func TestModel_View_TooSmallMessage(t *testing.T) {
 		t.Error("View() should return 'too small' message")
 	}
 }
-
-func TestAttachHeaderHeight(t *testing.T) {
-	cfg := func(n int) *config.Config {
-		return &config.Config{Settings: config.Settings{AttachHeaderLines: n}}
-	}
-	tests := []struct {
-		name     string
-		cfg      *config.Config
-		contentH int
-		want     int
-	}{
-		{"nil cfg uses min 20", nil, 40, 22},
-		{"zero setting uses min 20", cfg(0), 40, 22},
-		{"below min clamped to 20", cfg(10), 40, 22},
-		{"explicit above min", cfg(30), 40, 32},
-		{"clamped to keep grid >=5", cfg(20), 24, 19},
-		{"tiny terminal yields 0", cfg(20), 3, 0},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := attachHeaderHeight(tt.contentH, tt.cfg); got != tt.want {
-				t.Errorf("attachHeaderHeight(%d, %v) = %d, want %d",
-					tt.contentH, tt.cfg, got, tt.want)
-			}
-		})
-	}
-}

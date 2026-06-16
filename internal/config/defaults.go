@@ -15,5 +15,4 @@ var DefaultSettings = Settings{
 	PtyCols:             120,
 	PtyRows:             40,
 	LogFlushIntervalMs:  150,
-	AttachHeaderLines:   20,
 }

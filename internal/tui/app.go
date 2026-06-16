@@ -251,17 +251,7 @@ func (m Model) View() string {
 
 	rightPane := m.logPanel.View()
 	if m.mode == ModeEmbeddedAttach && m.attach != nil {
-		// Stack a live tail of the log panel above the attach grid so prior
-		// output stays visible instead of being wiped on attach entry.
-		headerH := attachHeaderHeight(contentH, m.cfg)
-		gridH := contentH - headerH
-		grid := attach.RenderWithSelection(m.attach.Term(), logW, gridH, m.attachSel)
-		if headerH > 0 {
-			tail := m.logPanel.RenderTail(logW, headerH)
-			rightPane = lipgloss.JoinVertical(lipgloss.Left, tail, grid)
-		} else {
-			rightPane = grid
-		}
+		rightPane = attach.RenderWithSelection(m.attach.Term(), logW, contentH, m.attachSel)
 	}
 	main := lipgloss.JoinHorizontal(lipgloss.Top,
 		m.sidebar.View(),
@@ -325,25 +315,6 @@ func applyToasts(m Model, base string) string {
 // project ID (plus the glyph + restart suffix + border). Clamped so it never
 // shrinks below a readable minimum or dominates the log panel on narrow
 // terminals. Falls back to a small default when no projects are configured.
-// attachHeaderHeight returns the rows reserved for the live log-tail header
-// shown above the embedded attach grid. lines+2 covers the log panel border;
-// the result is clamped so the grid always keeps at least 5 rows on short
-// terminals. A non-positive contentH yields 0 (no header).
-func attachHeaderHeight(contentH int, cfg *config.Config) int {
-	lines := 20
-	if cfg != nil && cfg.Settings.AttachHeaderLines > lines {
-		lines = cfg.Settings.AttachHeaderLines
-	}
-	h := lines + 2
-	if h > contentH-5 {
-		h = contentH - 5
-	}
-	if h < 0 {
-		h = 0
-	}
-	return h
-}
-
 func sidebarWidth(totalWidth int, cfg *config.Config) int {
 	const titleLen = len("PROCESSES")
 	// Per-row layout inside the sidebar (see panes/sidebar.go):

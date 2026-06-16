@@ -239,10 +239,10 @@ func handleResize(m Model, msg tea.WindowSizeMsg) Model {
 		m.mgr.Resize(id, ptyCols, ptyRows)
 	}
 	if m.mode == ModeEmbeddedAttach && m.attach != nil {
-		// The embedded grid fills the log pane below the live-tail header,
-		// so the emulator dims must match logW × (contentH - headerH).
+		// The embedded grid fills the whole log pane, so the emulator dims
+		// must match logW × contentH.
 		cols := uint16(max(20, logW))
-		rows := uint16(max(5, contentH-attachHeaderHeight(contentH, m.cfg)))
+		rows := uint16(max(5, contentH))
 		m.mgr.Resize(m.attach.ProjectID(), cols, rows)
 		m.attach.Resize(int(cols), int(rows))
 	}
@@ -344,9 +344,8 @@ func handleEmbeddedAttachRequest(m Model, msg EmbeddedAttachRequestMsg) (tea.Mod
 	sidebarW := sidebarWidth(m.width, m.cfg)
 	logW := m.width - sidebarW
 	contentH := m.height - statusBarHeight
-	// The log-tail header takes the top rows; the grid + PTY get the rest.
 	cols := max(20, logW)
-	rows := max(5, contentH-attachHeaderHeight(contentH, m.cfg))
+	rows := max(5, contentH)
 
 	// Resize the PTY before subscribing so the first frame the emulator
 	// sees has the right dims and apps redraw cleanly into the pane.

@@ -158,7 +158,6 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `settings.restart_backoff_ms` | `[int, ...]` | `[1000,2000,4000,8000,16000]` | Backoff schedule (ms) |
 | `settings.restart_max_attempts` | int | 5 | Max restart attempts |
 | `settings.pty_cols` / `pty_rows` | int | 120 / 40 | PTY dimensions |
-| `settings.attach_header_lines` | int | 20 | Live log-tail rows kept above the embedded attach grid (min 20) |
 
 ### Live reload
 
