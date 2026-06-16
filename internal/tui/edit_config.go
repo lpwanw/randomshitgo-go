@@ -75,6 +75,14 @@ func reloadConfig(m Model) (tea.Model, tea.Cmd) {
 	res := m.mgr.Reload(cfg)
 	m.cfg = cfg
 
+	if m.detachMode {
+		// The daemon owns reconciliation; RemoteManager.Reload only sends the
+		// command and returns an empty result. The real ReloadResult streams
+		// back as a ReloadResultMsg (see handleReloadResult). Just refresh the
+		// local config for rendering and let the async result update the sidebar.
+		return m, nil
+	}
+
 	if len(res.Added) > 0 {
 		m.runtime.Seed(res.Added)
 	}

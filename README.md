@@ -8,6 +8,7 @@ so you can type directly into any child process.
 ## Features
 
 - Single static binary, zero runtime dependencies
+- **Detach mode (macOS/Linux):** a background daemon supervises your processes; the TUI is a client you can detach from and reattach to (tmux-style). Close the terminal or drop your SSH session — your services keep running. See [Detach Mode](#detach-mode-daemon)
 - Terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea)
 - Per-project log panes with scroll, filter, and rotation
 - Named groups — boot the whole stack with one key
@@ -85,7 +86,56 @@ groups:
   fullstack: [api, web]
 ```
 
-2. Run `procs`. The TUI starts with all projects listed in the sidebar.
+2. Run `procs`. On macOS/Linux the first run starts a background **daemon** and
+   attaches a TUI to it; all projects are listed in the sidebar.
+
+## Detach Mode (daemon)
+
+On macOS/Linux, `procs` splits into a headless **daemon** that owns your
+processes and a **TUI client** that connects to it over a per-config unix
+socket. This means your services survive the terminal closing, an SSH
+disconnect, or logout — exactly like leaving them in `tmux`, but with per-project
+panes, named-group control, and reattach built in.
+
+- **Attach / reattach:** just run `procs`. If a daemon is already running for
+  that config it reattaches (restoring live state + recent logs); otherwise it
+  spawns one and attaches.
+- **Detach:** `:detach` (or `:q` / `Ctrl-C`) leaves the TUI and **keeps the
+  daemon and all processes running**. Reattach later with `procs`.
+- **Stop everything:** `:shutdown` from inside the TUI, or `procs kill` from a
+  shell, stops the daemon and all its children.
+
+### Subcommands
+
+| Command | Action |
+|---------|--------|
+| `procs` | Attach to the daemon, spawning it if needed |
+| `procs status` | Print the daemon's project states (or "no daemon running") |
+| `procs kill` | Stop the daemon and all its children |
+| `procs kill --orphans` | Also stop processes left behind by a crashed daemon |
+
+### Files
+
+Per-config state lives under your cache dir (`~/.cache/procs` on Linux,
+`~/Library/Caches/procs` on macOS), keyed by a hash of the config path, all
+owner-only (`0600`):
+
+| File | Purpose |
+|------|---------|
+| `<hash>.sock` | daemon control socket |
+| `<hash>.pid` | daemon pidfile + lock |
+| `<hash>.daemon.log` | daemon stdout/stderr |
+| `<hash>.children` | live child PIDs (for orphan recovery) |
+
+The socket is restricted to your user (mode `0600` inside a `0700` directory, with
+a peer-uid check), so other local users can't drive your processes.
+
+**Windows:** there is no daemon — `procs` runs the TUI in-process (today's
+behavior) and `:detach` is unavailable.
+
+**Why not just use tmux/screen?** You can, but the daemon gives you procs'
+per-project log panes, named-group start/stop, auto-restart, and one-key
+reattach without wrapping the whole UI in a multiplexer.
 
 ## Config
 
@@ -108,6 +158,7 @@ Full reference in [`examples/config.yml`](examples/config.yml).
 | `settings.restart_backoff_ms` | `[int, ...]` | `[1000,2000,4000,8000,16000]` | Backoff schedule (ms) |
 | `settings.restart_max_attempts` | int | 5 | Max restart attempts |
 | `settings.pty_cols` / `pty_rows` | int | 120 / 40 | PTY dimensions |
+| `settings.attach_header_lines` | int | 20 | Live log-tail rows kept above the embedded attach grid (min 20) |
 
 ### Live reload
 
@@ -154,9 +205,11 @@ Press `Ctrl-E` in the TUI to open the active config in `$VISUAL` (preferred), `$
 | `:reload` | Re-read config from disk without opening an editor |
 | `:fetch` | `git fetch --prune` the selected project (async; result toasted) |
 | `:pull` | `git pull --ff-only` the selected project — never merges; refuses diverged branches |
+| `:detach` | Detach the TUI; the daemon + processes keep running (macOS/Linux) |
+| `:shutdown` | Stop the daemon and all its children |
 | `?` | Toggle help overlay |
 | `:` | Open command bar (`:q` to quit) |
-| `Ctrl-C` | Quit — press twice within 2 s to confirm |
+| `Ctrl-C` | Detach (daemon mode) / quit — press twice within 2 s to confirm |
 | `Esc` | Cancel / close overlay |
 
 ### Log focus (vim motions + copy)
@@ -221,6 +274,11 @@ from the command bar.
 
 ## Attach Mode
 
+> **Note:** Attach currently requires in-process mode. Since macOS/Linux default
+> to [daemon mode](#detach-mode-daemon), run `procs --no-daemon` to use attach
+> (this runs the TUI without a daemon, so processes stop when you quit).
+> Remote attach over the daemon socket is planned for a future release.
+
 Press `a` to attach to a running process. The terminal enters raw mode and all
 input goes directly to the child PTY. To return to `procs`:
 
@@ -259,6 +317,20 @@ The project's `path` must be inside a Git repository. If `git` is not on
 **Process does not restart:**
 Check that `restart: on-failure` is set in your config. `restart: never`
 (the default) means the process stays stopped after it exits.
+
+**Daemon won't start / `procs` hangs on launch:**
+Check the daemon log at `~/.cache/procs/<hash>.daemon.log` (macOS:
+`~/Library/Caches/procs/...`). If a previous daemon crashed, a stale socket is
+cleaned up automatically on the next launch.
+
+**"N processes from a previously crashed daemon are still running":**
+A daemon died without stopping its children. Run `procs kill --orphans` to stop
+them before they conflict with newly started processes.
+
+**Changes to a running project's command aren't applied after reload:**
+`:reload` / `Ctrl-E` reconcile added/removed projects immediately, but a changed
+command keeps running on the old definition — press `r` on the project to pick
+up the new command.
 
 ## License
 

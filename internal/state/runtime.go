@@ -66,6 +66,26 @@ func (s *RuntimeStore) Seed(ids []string) {
 	}
 }
 
+// Set overwrites a project's state and PID directly, creating the entry if
+// absent, then notifies subscribers. Used by the daemon client to seed the
+// mirror from a snapshot (PID and state arrive together, unlike the event path
+// where PID comes only from a Started event).
+func (s *RuntimeStore) Set(id, st string, pid int) {
+	s.mu.Lock()
+	r := s.getOrInitLocked(id)
+	r.State = st
+	r.PID = pid
+	subs := s.subs
+	s.mu.Unlock()
+
+	for _, ch := range subs {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
 // Delete removes the given ids from the store and notifies subscribers.
 // No-op for ids that aren't present.
 func (s *RuntimeStore) Delete(ids []string) {

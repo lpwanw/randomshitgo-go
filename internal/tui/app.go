@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lpwanw/randomshitgo-go/internal/config"
 	"github.com/lpwanw/randomshitgo-go/internal/log"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
 	"github.com/lpwanw/randomshitgo-go/internal/procstats"
 	"github.com/lpwanw/randomshitgo-go/internal/state"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
@@ -30,7 +29,7 @@ const (
 type Model struct {
 	cfg     *config.Config
 	cfgPath string // resolved absolute config path; "" if unknown
-	mgr     *process.Manager
+	mgr     ProcManager
 	runtime *state.RuntimeStore
 	ui      *state.UIStore
 	reg     *state.Registry
@@ -40,6 +39,14 @@ type Model struct {
 	mode   Mode
 	width  int
 	height int
+
+	// detachMode is true when the TUI drives a remote daemon (RemoteManager).
+	// In that mode quit detaches (leaves the daemon running) instead of stopping
+	// children, and attach is unavailable.
+	detachMode bool
+	// quitReason records why the program is quitting so the entrypoint can
+	// detach vs shut the daemon down. "" / "detach" = detach; "shutdown" = stop.
+	quitReason string
 
 	sidebar   panes.Sidebar
 	logPanel  panes.LogPanel
@@ -88,7 +95,7 @@ type gitInfoCache struct {
 }
 
 // New constructs a root Model wiring all sub-models.
-func New(cfg *config.Config, mgr *process.Manager, runtime *state.RuntimeStore, ui *state.UIStore, reg *state.Registry, cfgPath string) Model {
+func New(cfg *config.Config, mgr ProcManager, runtime *state.RuntimeStore, ui *state.UIStore, reg *state.Registry, cfgPath string) Model {
 	groups := make(map[string][]string)
 	if cfg.Groups != nil {
 		for k, v := range cfg.Groups {
@@ -116,6 +123,22 @@ func New(cfg *config.Config, mgr *process.Manager, runtime *state.RuntimeStore, 
 
 // SetProgram stores the *tea.Program reference so attach mode can release the terminal.
 func (m *Model) SetProgram(p *tea.Program) { m.prog = p }
+
+// SetDetachMode marks the TUI as driving a remote daemon. In detach mode, quit
+// disconnects (leaving the daemon and children running) rather than stopping
+// children, and attach is unavailable.
+func (m *Model) SetDetachMode(b bool) { m.detachMode = b }
+
+// QuitReason reports why the program quit: "shutdown" means the user asked to
+// stop the daemon+children; anything else means detach (leave running). Read by
+// the entrypoint after the program loop returns.
+func (m Model) QuitReason() string { return m.quitReason }
+
+// Quit-reason values.
+const (
+	quitReasonDetach   = "detach"
+	quitReasonShutdown = "shutdown"
+)
 
 // displayMode returns the status-bar mode label. While in log focus, the
 // label flips from "LOG" to "COPY" whenever a visual selection is active so
@@ -228,7 +251,17 @@ func (m Model) View() string {
 
 	rightPane := m.logPanel.View()
 	if m.mode == ModeEmbeddedAttach && m.attach != nil {
-		rightPane = attach.RenderWithSelection(m.attach.Term(), logW, contentH, m.attachSel)
+		// Stack a live tail of the log panel above the attach grid so prior
+		// output stays visible instead of being wiped on attach entry.
+		headerH := attachHeaderHeight(contentH, m.cfg)
+		gridH := contentH - headerH
+		grid := attach.RenderWithSelection(m.attach.Term(), logW, gridH, m.attachSel)
+		if headerH > 0 {
+			tail := m.logPanel.RenderTail(logW, headerH)
+			rightPane = lipgloss.JoinVertical(lipgloss.Left, tail, grid)
+		} else {
+			rightPane = grid
+		}
 	}
 	main := lipgloss.JoinHorizontal(lipgloss.Top,
 		m.sidebar.View(),
@@ -292,6 +325,25 @@ func applyToasts(m Model, base string) string {
 // project ID (plus the glyph + restart suffix + border). Clamped so it never
 // shrinks below a readable minimum or dominates the log panel on narrow
 // terminals. Falls back to a small default when no projects are configured.
+// attachHeaderHeight returns the rows reserved for the live log-tail header
+// shown above the embedded attach grid. lines+2 covers the log panel border;
+// the result is clamped so the grid always keeps at least 5 rows on short
+// terminals. A non-positive contentH yields 0 (no header).
+func attachHeaderHeight(contentH int, cfg *config.Config) int {
+	lines := 20
+	if cfg != nil && cfg.Settings.AttachHeaderLines > lines {
+		lines = cfg.Settings.AttachHeaderLines
+	}
+	h := lines + 2
+	if h > contentH-5 {
+		h = contentH - 5
+	}
+	if h < 0 {
+		h = 0
+	}
+	return h
+}
+
 func sidebarWidth(totalWidth int, cfg *config.Config) int {
 	const titleLen = len("PROCESSES")
 	// Per-row layout inside the sidebar (see panes/sidebar.go):

@@ -206,3 +206,37 @@ func TestErrorUnwrap(t *testing.T) {
 		t.Fatal("errors.Is should match wrapped err")
 	}
 }
+
+func TestAttachHeaderLinesDefault(t *testing.T) {
+	p := writeTmp(t, "c.yml", `
+projects:
+  api:
+    path: /tmp
+    cmd: echo hi
+`)
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if cfg.Settings.AttachHeaderLines != 20 {
+		t.Fatalf("attach_header_lines default: got %d, want 20", cfg.Settings.AttachHeaderLines)
+	}
+}
+
+func TestAttachHeaderLinesExplicit(t *testing.T) {
+	p := writeTmp(t, "c.yml", `
+projects:
+  api:
+    path: /tmp
+    cmd: echo hi
+settings:
+  attach_header_lines: 30
+`)
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if cfg.Settings.AttachHeaderLines != 30 {
+		t.Fatalf("attach_header_lines explicit: got %d, want 30", cfg.Settings.AttachHeaderLines)
+	}
+}

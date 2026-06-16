@@ -56,12 +56,19 @@ func (r *Registry) Get(id string) *Entry {
 	ring := log.NewRingBuffer[log.Line](cap)
 	lb := log.NewLineBuffer(0)
 
-	logPath := filepath.Join(r.cfg.LogDir, fmt.Sprintf("%s.log", id))
-	rot, err := log.NewRotator(logPath, r.cfg.LogRotateSizeMB, r.cfg.LogRotateKeep)
-	if err != nil {
-		// Log directory may not exist yet; best-effort — rotator will be nil.
-		fmt.Printf("procs: registry: open rotator for %s: %v\n", id, err)
-		rot = nil
+	// An empty LogDir means "ring-only" (no disk): used by the daemon client,
+	// which mirrors the daemon's log stream into memory and must never write the
+	// on-disk log files the daemon owns.
+	var rot *log.Rotator
+	if r.cfg.LogDir != "" {
+		logPath := filepath.Join(r.cfg.LogDir, fmt.Sprintf("%s.log", id))
+		rt, err := log.NewRotator(logPath, r.cfg.LogRotateSizeMB, r.cfg.LogRotateKeep)
+		if err != nil {
+			// Log directory may not exist yet; best-effort — rotator will be nil.
+			fmt.Printf("procs: registry: open rotator for %s: %v\n", id, err)
+		} else {
+			rot = rt
+		}
 	}
 
 	e := &Entry{Ring: ring, Rot: rot, line: lb}

@@ -12,6 +12,7 @@ import (
 	"github.com/lpwanw/randomshitgo-go/internal/gitinfo"
 	logpkg "github.com/lpwanw/randomshitgo-go/internal/log"
 	"github.com/lpwanw/randomshitgo-go/internal/netinfo"
+	"github.com/lpwanw/randomshitgo-go/internal/process"
 	"github.com/lpwanw/randomshitgo-go/internal/procstats"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
@@ -183,8 +184,38 @@ func handleMsg(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ConfigEditedMsg:
 		return handleConfigEdited(m, msg)
+
+	case ConnLostMsg:
+		m.overlays.Toasts.Add("daemon connection lost — relaunch procs to reattach", overlays.ToastErr)
+		return m, nil
+
+	case DaemonToastMsg:
+		m.overlays.Toasts.Add(msg.Text, msg.Level)
+		return m, nil
+
+	case ReloadResultMsg:
+		return handleReloadResult(m, msg)
 	}
 
+	return m, nil
+}
+
+// handleReloadResult applies a daemon-side reload reconciliation to the sidebar:
+// seed added projects, drop removed ones, and toast changed projects.
+func handleReloadResult(m Model, msg ReloadResultMsg) (tea.Model, tea.Cmd) {
+	if len(msg.Added) > 0 {
+		m.runtime.Seed(msg.Added)
+	}
+	if len(msg.Removed) > 0 {
+		m.runtime.Delete(msg.Removed)
+	}
+	res := process.ReloadResult{
+		Added:   msg.Added,
+		Removed: msg.Removed,
+		Changed: msg.Changed,
+		Stopped: msg.Stopped,
+	}
+	m.overlays.Toasts.Add(reloadSummary(res), reloadLevel(res))
 	return m, nil
 }
 
@@ -208,10 +239,10 @@ func handleResize(m Model, msg tea.WindowSizeMsg) Model {
 		m.mgr.Resize(id, ptyCols, ptyRows)
 	}
 	if m.mode == ModeEmbeddedAttach && m.attach != nil {
-		// The embedded grid fills the log pane exactly — no internal
-		// border — so the emulator dims must match logW × contentH.
+		// The embedded grid fills the log pane below the live-tail header,
+		// so the emulator dims must match logW × (contentH - headerH).
 		cols := uint16(max(20, logW))
-		rows := uint16(max(5, contentH))
+		rows := uint16(max(5, contentH-attachHeaderHeight(contentH, m.cfg)))
 		m.mgr.Resize(m.attach.ProjectID(), cols, rows)
 		m.attach.Resize(int(cols), int(rows))
 	}
@@ -313,8 +344,9 @@ func handleEmbeddedAttachRequest(m Model, msg EmbeddedAttachRequestMsg) (tea.Mod
 	sidebarW := sidebarWidth(m.width, m.cfg)
 	logW := m.width - sidebarW
 	contentH := m.height - statusBarHeight
+	// The log-tail header takes the top rows; the grid + PTY get the rest.
 	cols := max(20, logW)
-	rows := max(5, contentH)
+	rows := max(5, contentH-attachHeaderHeight(contentH, m.cfg))
 
 	// Resize the PTY before subscribing so the first frame the emulator
 	// sees has the right dims and apps redraw cleanly into the pane.
@@ -472,7 +504,7 @@ func handleStatusRefresh(m Model) tea.Cmd {
 // window elapses the next press re-arms instead of quitting.
 func handleCtrlC(m Model) (tea.Model, tea.Cmd) {
 	if !m.quitArmedAt.IsZero() && time.Since(m.quitArmedAt) <= quitArmWindow {
-		return m, gracefulQuit(m)
+		return handleQuitRequest(m, quitReasonDetach)
 	}
 	m.quitArmedAt = time.Now()
 	m.overlays.Toasts.AddWithTTL("Press Ctrl+C again to quit", overlays.ToastWarn, quitArmWindow)
@@ -555,7 +587,15 @@ func dispatchCommand(m Model, text string) (tea.Model, tea.Cmd) {
 	case "":
 		return m, nil
 	case "q", "quit":
-		return m, gracefulQuit(m)
+		return handleQuitRequest(m, quitReasonDetach)
+	case "detach":
+		if !m.detachMode {
+			m.overlays.Toasts.Add("detach: not running in daemon mode", overlays.ToastWarn)
+			return m, nil
+		}
+		return handleQuitRequest(m, quitReasonDetach)
+	case "shutdown":
+		return handleQuitRequest(m, quitReasonShutdown)
 	case "set nu", "set number":
 		m.logPanel.SetGutter(true)
 		return m, nil
@@ -719,6 +759,18 @@ func firstLine(s string) string {
 		}
 	}
 	return ""
+}
+
+// handleQuitRequest records the quit reason and quits. In detach mode the
+// daemon and children keep running (the entrypoint disconnects, or sends a
+// shutdown command for reason "shutdown"). In in-process mode it stops children
+// gracefully before quitting, regardless of reason.
+func handleQuitRequest(m Model, reason string) (tea.Model, tea.Cmd) {
+	m.quitReason = reason
+	if m.detachMode {
+		return m, tea.Quit
+	}
+	return m, gracefulQuit(m)
 }
 
 // gracefulQuit stops all processes then emits QuitMsg.

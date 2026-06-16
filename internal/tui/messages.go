@@ -64,6 +64,25 @@ type CheckoutBranchMsg struct {
 // statusRefreshTickMsg triggers a 2-second status-bar refresh cycle.
 type statusRefreshTickMsg struct{}
 
+// ConnLostMsg is delivered (in daemon mode) when the connection to the daemon
+// drops. The daemon and its children keep running; the user must relaunch.
+type ConnLostMsg struct{}
+
+// DaemonToastMsg surfaces a daemon-originated toast (errors, notices) in the UI.
+type DaemonToastMsg struct {
+	Text  string
+	Level int // 0=info 1=warn 2=err
+}
+
+// ReloadResultMsg carries the daemon's config-reload reconciliation result so
+// the client sidebar can reflect added/removed/changed projects.
+type ReloadResultMsg struct {
+	Added   []string
+	Removed []string
+	Changed []string
+	Stopped []string
+}
+
 // GitInfoMsg delivers fresh git info for a project to the TUI.
 type GitInfoMsg struct {
 	ID   string

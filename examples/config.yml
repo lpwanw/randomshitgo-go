@@ -37,3 +37,4 @@ settings:
   pty_cols: 120
   pty_rows: 40
   log_flush_interval_ms: 150
+  attach_header_lines: 20      # live log-tail rows kept above the embedded attach grid (min 20)

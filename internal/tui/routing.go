@@ -6,13 +6,12 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
 	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
 )
 
 // startCmd returns a tea.Cmd that calls mgr.Start and returns a ShowToastMsg on error.
-func startCmd(mgr *process.Manager, id string) tea.Cmd {
+func startCmd(mgr ProcManager, id string) tea.Cmd {
 	return func() tea.Msg {
 		if err := mgr.Start(id); err != nil {
 			return ShowToastMsg{Text: "start: " + err.Error(), Level: overlays.ToastErr}
@@ -22,7 +21,7 @@ func startCmd(mgr *process.Manager, id string) tea.Cmd {
 }
 
 // restartCmd returns a tea.Cmd that calls mgr.Restart and returns a ShowToastMsg on error.
-func restartCmd(mgr *process.Manager, id string) tea.Cmd {
+func restartCmd(mgr ProcManager, id string) tea.Cmd {
 	return func() tea.Msg {
 		if err := mgr.Restart(id); err != nil {
 			return ShowToastMsg{Text: "restart: " + err.Error(), Level: overlays.ToastErr}
@@ -32,7 +31,7 @@ func restartCmd(mgr *process.Manager, id string) tea.Cmd {
 }
 
 // stopCmd returns a tea.Cmd that calls mgr.Stop and returns a ShowToastMsg on error.
-func stopCmd(mgr *process.Manager, id string, grace time.Duration) tea.Cmd {
+func stopCmd(mgr ProcManager, id string, grace time.Duration) tea.Cmd {
 	return func() tea.Msg {
 		if err := mgr.Stop(id, grace); err != nil {
 			return ShowToastMsg{Text: "stop: " + err.Error(), Level: overlays.ToastErr}
@@ -42,7 +41,7 @@ func stopCmd(mgr *process.Manager, id string, grace time.Duration) tea.Cmd {
 }
 
 // stopAllCmd returns a tea.Cmd that calls mgr.StopAll.
-func stopAllCmd(mgr *process.Manager, grace time.Duration) tea.Cmd {
+func stopAllCmd(mgr ProcManager, grace time.Duration) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), grace+5*time.Second)
 		defer cancel()

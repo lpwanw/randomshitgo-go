@@ -157,6 +157,20 @@ func (lp *LogPanel) SetSize(width, height int) {
 	lp.dirty = true
 }
 
+// RenderTail resizes the panel to width×height and, when sticky, snaps the
+// viewport to the newest lines before rendering. Used to show a live log tail
+// above the embedded attach grid: plain SetSize leaves YOffset at the prior
+// (taller) page, which would render a stale mid-buffer slice instead of the
+// bottom. The mutation is transient — the next frame re-sizes the panel to its
+// full height in View, so the normal log view is unaffected.
+func (lp *LogPanel) RenderTail(width, height int) string {
+	lp.SetSize(width, height)
+	if lp.sticky && !lp.paused && !lp.HasSelection() {
+		lp.vp.GotoBottom()
+	}
+	return lp.View()
+}
+
 // SetOrigin records the panel's top-left in absolute screen coordinates so
 // MouseMsg X/Y can be translated to in-pane content cells.
 func (lp *LogPanel) SetOrigin(x, y int) {

@@ -36,6 +36,7 @@ type Settings struct {
 	PtyCols             int    `yaml:"pty_cols"`
 	PtyRows             int    `yaml:"pty_rows"`
 	LogFlushIntervalMs  int    `yaml:"log_flush_interval_ms"`
+	AttachHeaderLines   int    `yaml:"attach_header_lines"`
 }
 
 type Config struct {
@@ -138,6 +139,9 @@ func applyDefaults(s *Settings) {
 	}
 	if s.LogFlushIntervalMs == 0 {
 		s.LogFlushIntervalMs = d.LogFlushIntervalMs
+	}
+	if s.AttachHeaderLines == 0 {
+		s.AttachHeaderLines = d.AttachHeaderLines
 	}
 }
 
