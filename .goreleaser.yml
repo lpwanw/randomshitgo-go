@@ -28,7 +28,7 @@ builds:
 
 archives:
   - id: default
-    format: tar.gz
+    formats: [tar.gz]
     name_template: "procs_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
