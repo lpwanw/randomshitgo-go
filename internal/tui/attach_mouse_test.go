@@ -8,8 +8,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
+	"github.com/lpwanw/procs/internal/tui/attach"
+	"github.com/lpwanw/procs/internal/tui/panes"
 )
 
 // fakeClip records the last clipboard write.

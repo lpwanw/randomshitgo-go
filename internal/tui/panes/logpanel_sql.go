@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/procs/internal/log"
 )
 
 // sqlStartRe detects whether (post-trim) a line begins with a SQL verb —

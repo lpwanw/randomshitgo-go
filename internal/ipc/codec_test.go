@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/event"
-	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/procs/internal/event"
+	"github.com/lpwanw/procs/internal/log"
 )
 
 // roundTrip encodes envs through an Encoder and decodes them back.

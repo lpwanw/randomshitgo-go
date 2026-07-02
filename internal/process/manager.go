@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
+	"github.com/lpwanw/procs/internal/config"
 )
 
 const eventsBufSize = 256

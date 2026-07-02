@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/procs/internal/log"
 )
 
 // cursor tracks a position inside the log buffer for copy mode. Col is a byte

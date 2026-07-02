@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/event"
-	"github.com/lpwanw/randomshitgo-go/internal/ipc"
-	"github.com/lpwanw/randomshitgo-go/internal/log"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
-	"github.com/lpwanw/randomshitgo-go/internal/state"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/event"
+	"github.com/lpwanw/procs/internal/ipc"
+	"github.com/lpwanw/procs/internal/log"
+	"github.com/lpwanw/procs/internal/process"
+	"github.com/lpwanw/procs/internal/state"
 )
 
 // Manager is the subset of *process.Manager the server drives. Defined as an

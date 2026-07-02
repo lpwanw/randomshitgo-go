@@ -5,8 +5,8 @@ import (
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
+	"github.com/lpwanw/procs/internal/tui/attach"
+	"github.com/lpwanw/procs/internal/tui/panes"
 )
 
 // attachClipboard writes text to the system clipboard. Tests inject a fake.

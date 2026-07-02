@@ -3,7 +3,7 @@ package panes
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/procs/internal/log"
 )
 
 // handleMouse drives left-button drag selection on the log pane. Wheel

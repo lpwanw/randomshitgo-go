@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/process"
+	"github.com/lpwanw/procs/internal/tui/overlays"
 )
 
 // handleEditConfig suspends the TUI, runs the user's $EDITOR on the resolved

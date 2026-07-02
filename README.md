@@ -25,15 +25,15 @@ so you can type directly into any child process.
 
 ### Go install (requires Go 1.22+)
 ```sh
-go install github.com/lpwanw/randomshitgo-go/cmd/procs@latest
+go install github.com/lpwanw/procs/cmd/procs@latest
 ```
 Binary lands in `$(go env GOBIN)` — falls back to `$(go env GOPATH)/bin`.
 Make sure that directory is on your `PATH`.
 
 ### From source
 ```sh
-git clone https://github.com/lpwanw/randomshitgo-go
-cd randomshitgo-go
+git clone https://github.com/lpwanw/procs
+cd procs
 make install                  # default PREFIX=$HOME/.local → ~/.local/bin/procs (no sudo)
 # system-wide install (requires sudo, shared with other users):
 sudo make install PREFIX=/usr/local
@@ -41,7 +41,7 @@ sudo make install PREFIX=/usr/local
 
 ### Direct binary (macOS/Linux)
 Download the archive for your OS/arch from
-[Releases](https://github.com/lpwanw/randomshitgo-go/releases), extract, and
+[Releases](https://github.com/lpwanw/procs/releases), extract, and
 place `procs` on your `PATH`.
 
 **Homebrew:** tap coming in a future release.
@@ -50,7 +50,7 @@ place `procs` on your `PATH`.
 
 | Installed via | Command |
 |---------------|---------|
-| `go install`  | `go install github.com/lpwanw/randomshitgo-go/cmd/procs@latest` |
+| `go install`  | `go install github.com/lpwanw/procs/cmd/procs@latest` |
 | source checkout | `make update` (runs `git pull --ff-only && make install`) |
 | direct binary | re-download the latest release and overwrite the binary |
 

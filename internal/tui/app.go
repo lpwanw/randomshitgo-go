@@ -6,13 +6,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/log"
-	"github.com/lpwanw/randomshitgo-go/internal/procstats"
-	"github.com/lpwanw/randomshitgo-go/internal/state"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/log"
+	"github.com/lpwanw/procs/internal/procstats"
+	"github.com/lpwanw/procs/internal/state"
+	"github.com/lpwanw/procs/internal/tui/attach"
+	"github.com/lpwanw/procs/internal/tui/overlays"
+	"github.com/lpwanw/procs/internal/tui/panes"
 )
 
 const (

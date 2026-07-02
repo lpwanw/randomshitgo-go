@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/process"
 )
 
 // ProcManager is the process-control surface the TUI depends on. The in-process

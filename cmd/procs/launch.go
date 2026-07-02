@@ -10,12 +10,12 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/client"
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/daemon"
-	"github.com/lpwanw/randomshitgo-go/internal/ipc"
-	"github.com/lpwanw/randomshitgo-go/internal/state"
-	"github.com/lpwanw/randomshitgo-go/internal/tui"
+	"github.com/lpwanw/procs/internal/client"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/daemon"
+	"github.com/lpwanw/procs/internal/ipc"
+	"github.com/lpwanw/procs/internal/state"
+	"github.com/lpwanw/procs/internal/tui"
 	"golang.org/x/sys/unix"
 )
 

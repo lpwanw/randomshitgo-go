@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/procs/internal/log"
 )
 
 // severityRe tags the first severity token on a log line. Word boundaries

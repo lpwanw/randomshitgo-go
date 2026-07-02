@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/daemon"
-	"github.com/lpwanw/randomshitgo-go/internal/ipc"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/daemon"
+	"github.com/lpwanw/procs/internal/ipc"
 )
 
 // resolveCfgArg parses -c/--config and --orphans from args and resolves the

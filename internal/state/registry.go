@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/log"
 )
 
 // Entry holds the per-project log pipeline: ring buffer, rotator, line splitter.

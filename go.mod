@@ -1,4 +1,4 @@
-module github.com/lpwanw/randomshitgo-go
+module github.com/lpwanw/procs
 
 go 1.25.0
 

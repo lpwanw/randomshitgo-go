@@ -7,11 +7,11 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/event"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
-	"github.com/lpwanw/randomshitgo-go/internal/state"
-	"github.com/lpwanw/randomshitgo-go/internal/tui"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/event"
+	"github.com/lpwanw/procs/internal/process"
+	"github.com/lpwanw/procs/internal/state"
+	"github.com/lpwanw/procs/internal/tui"
 )
 
 // Build-time variables — injected via ldflags.
@@ -51,7 +51,7 @@ Flags:
 
 Inside the TUI: :detach (or :q / Ctrl-C) leaves the daemon running; :shutdown stops it.
 
-Config: https://github.com/lpwanw/randomshitgo-go/blob/main/examples/config.yml
+Config: https://github.com/lpwanw/procs/blob/main/examples/config.yml
 `)
 	}
 

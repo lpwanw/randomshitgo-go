@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/event"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/event"
+	"github.com/lpwanw/procs/internal/process"
 )
 
 // TestLogsReachRegistry verifies that log lines from noisy.sh end up in the

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/log"
 )
 
 // safeBuf is a thread-safe bytes.Buffer for tee tests.

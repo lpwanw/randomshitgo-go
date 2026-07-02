@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/ipc"
-	"github.com/lpwanw/randomshitgo-go/internal/log"
-	"github.com/lpwanw/randomshitgo-go/internal/state"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/ipc"
+	"github.com/lpwanw/procs/internal/log"
+	"github.com/lpwanw/procs/internal/state"
 )
 
 // NotifKind classifies a non-state notification surfaced to the TUI. Ordinary

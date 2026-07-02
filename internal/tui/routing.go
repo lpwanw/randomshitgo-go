@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
+	"github.com/lpwanw/procs/internal/tui/attach"
+	"github.com/lpwanw/procs/internal/tui/overlays"
 )
 
 // startCmd returns a tea.Cmd that calls mgr.Start and returns a ShowToastMsg on error.

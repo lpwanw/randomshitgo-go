@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/state"
+	"github.com/lpwanw/procs/internal/state"
 )
 
 // ---- Sidebar tests ----

@@ -28,7 +28,7 @@ func procsBinary(t *testing.T) string {
 			return
 		}
 		binPath = filepath.Join(dir, "procs")
-		out, err := exec.Command("go", "build", "-o", binPath, "github.com/lpwanw/randomshitgo-go/cmd/procs").CombinedOutput()
+		out, err := exec.Command("go", "build", "-o", binPath, "github.com/lpwanw/procs/cmd/procs").CombinedOutput()
 		if err != nil {
 			buildErr = err
 			t.Logf("build output: %s", out)

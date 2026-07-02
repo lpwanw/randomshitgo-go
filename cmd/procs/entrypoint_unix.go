@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/lpwanw/randomshitgo-go/internal/config"
+import "github.com/lpwanw/procs/internal/config"
 
 // handleSubcommand routes daemon-mode subcommands on unix. Returns (code, true)
 // when it handled the subcommand, else (0, false) to fall through to the

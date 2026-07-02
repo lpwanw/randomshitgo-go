@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
-	"github.com/lpwanw/randomshitgo-go/internal/state"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/process"
+	"github.com/lpwanw/procs/internal/state"
+	"github.com/lpwanw/procs/internal/tui/overlays"
 )
 
 const baseYAML = `projects:

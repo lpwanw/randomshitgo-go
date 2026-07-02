@@ -8,15 +8,15 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/gitinfo"
-	logpkg "github.com/lpwanw/randomshitgo-go/internal/log"
-	"github.com/lpwanw/randomshitgo-go/internal/netinfo"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
-	"github.com/lpwanw/randomshitgo-go/internal/procstats"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/attach"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/overlays"
-	"github.com/lpwanw/randomshitgo-go/internal/tui/panes"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/gitinfo"
+	logpkg "github.com/lpwanw/procs/internal/log"
+	"github.com/lpwanw/procs/internal/netinfo"
+	"github.com/lpwanw/procs/internal/process"
+	"github.com/lpwanw/procs/internal/procstats"
+	"github.com/lpwanw/procs/internal/tui/attach"
+	"github.com/lpwanw/procs/internal/tui/overlays"
+	"github.com/lpwanw/procs/internal/tui/panes"
 )
 
 // handleMsg is the central message dispatcher for the root Model.

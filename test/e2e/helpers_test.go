@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
-	"github.com/lpwanw/randomshitgo-go/internal/state"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/process"
+	"github.com/lpwanw/procs/internal/state"
 )
 
 // testSettings returns minimal settings suitable for fast e2e tests.

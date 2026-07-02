@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/ipc"
+	"github.com/lpwanw/procs/internal/ipc"
 )
 
 // maxLogQueue bounds the per-client backlog of log-line envelopes. When full,

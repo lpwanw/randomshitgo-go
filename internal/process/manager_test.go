@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
+	"github.com/lpwanw/procs/internal/config"
 )
 
 func makeTestConfig(t *testing.T) *config.Config {

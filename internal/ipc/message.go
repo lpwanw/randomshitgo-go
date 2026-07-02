@@ -1,8 +1,8 @@
 package ipc
 
 import (
-	"github.com/lpwanw/randomshitgo-go/internal/event"
-	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/procs/internal/event"
+	"github.com/lpwanw/procs/internal/log"
 )
 
 // Kind tags the top-level Envelope payload.

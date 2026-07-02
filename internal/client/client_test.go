@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/client"
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/daemon"
-	"github.com/lpwanw/randomshitgo-go/internal/event"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
-	"github.com/lpwanw/randomshitgo-go/internal/state"
-	"github.com/lpwanw/randomshitgo-go/internal/tui"
+	"github.com/lpwanw/procs/internal/client"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/daemon"
+	"github.com/lpwanw/procs/internal/event"
+	"github.com/lpwanw/procs/internal/process"
+	"github.com/lpwanw/procs/internal/state"
+	"github.com/lpwanw/procs/internal/tui"
 	"go.uber.org/goleak"
 )
 

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/event"
+	"github.com/lpwanw/procs/internal/event"
 )
 
 // ProjectRuntime holds the live runtime state for a single project.

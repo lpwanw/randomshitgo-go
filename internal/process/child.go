@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/log"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/log"
 )
 
 // wgDone is an interface for sync.WaitGroup so tests can pass a no-op.

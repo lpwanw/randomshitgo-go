@@ -9,9 +9,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
-	"github.com/lpwanw/randomshitgo-go/internal/ipc"
-	"github.com/lpwanw/randomshitgo-go/internal/process"
+	"github.com/lpwanw/procs/internal/config"
+	"github.com/lpwanw/procs/internal/ipc"
+	"github.com/lpwanw/procs/internal/process"
 )
 
 // errDetached is returned by operations that are unavailable while detached

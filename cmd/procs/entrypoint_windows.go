@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lpwanw/randomshitgo-go/internal/config"
+	"github.com/lpwanw/procs/internal/config"
 )
 
 // handleSubcommand reports that daemon-mode subcommands are unavailable on
